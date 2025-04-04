@@ -3,16 +3,39 @@ import 'package:flow_layout/graph/graph.dart';
 
 /// 如果有需要对 edges() 进行排序比对，可以用 sortEdges 函数
 int sortEdges(a, b) {
+  // 1) Compare v
   final vCmp = a.v.compareTo(b.v);
   if (vCmp != 0) return vCmp;
+
+  // 2) Compare w
   final wCmp = a.w.compareTo(b.w);
   if (wCmp != 0) return wCmp;
 
-  // 若 multigraph 带 name，也可比 name
-  if (a.name == null && b.name == null) return 0;
-  if (a.name == null) return -1;
-  if (b.name == null) return 1;
-  return a.name.compareTo(b.name);
+  // 3) Compare name
+  final aName = a.name as String?; // maybe null
+  final bName = b.name as String?; // maybe null
+
+  // 若 name 都是 null => 等价
+  if (aName == null && bName == null) return 0;
+  // 若 a 无名、 b 有名 => a 排后 => 返回 +1
+  if (aName == null) return 1;
+  // 若 b 无名、 a 有名 => b 排后 => 返回 -1
+  if (bName == null) return -1;
+
+  // 都有 name => 按 name 字典序
+  return aName.compareTo(bName);
+}
+
+List<Map<String, dynamic>> edgesToMaps(List<Edge>? edges) {
+  if (edges == null) return [];
+  return edges.map((e) {
+    // 将 Edge(...) => { v:'...', w:'...', [name:'...'] }
+    final map = <String, dynamic>{'v': e.v, 'w': e.w};
+    if (e.name != null && e.name!.isNotEmpty) {
+      map['name'] = e.name;
+    }
+    return map;
+  }).toList();
 }
 
 void main() {
@@ -1052,17 +1075,25 @@ void main() {
     test('returns the edges that point at the specified node', () {
       g.setEdge('a', 'b');
       g.setEdge('b', 'c');
-      expect(g.inEdges('a'), <dynamic>[]);
+
       expect(
-          g.inEdges('b'),
-          [
-            {'v': 'a', 'w': 'b'},
-          ].map((e) => e).toList());
+        edgesToMaps(g.inEdges('a')),
+        <dynamic>[], // 期望空列表
+      );
+
       expect(
-          g.inEdges('c'),
-          [
-            {'v': 'b', 'w': 'c'},
-          ].map((e) => e).toList());
+        edgesToMaps(g.inEdges('b')),
+        [
+          {'v': 'a', 'w': 'b'},
+        ],
+      );
+
+      expect(
+        edgesToMaps(g.inEdges('c')),
+        [
+          {'v': 'b', 'w': 'c'},
+        ],
+      );
     });
 
     test('works for multigraphs', () {
@@ -1116,36 +1147,62 @@ void main() {
     test('returns all edges that this node points at', () {
       g.setEdge('a', 'b');
       g.setEdge('b', 'c');
-      expect(
-          g.outEdges('a'),
-          [
-            {'v': 'a', 'w': 'b'},
-          ].map((e) => e).toList());
-      expect(
-          g.outEdges('b'),
-          [
-            {'v': 'b', 'w': 'c'},
-          ].map((e) => e).toList());
+
+      // outEdges('a') => List<Edge>?  => 转成 List<Map>
+      final aOut = g.outEdges('a') ?? [];
+      final aOutMaps = aOut
+          .map((edge) => {
+                'v': edge.v,
+                'w': edge.w,
+                if (edge.name != null) 'name': edge.name
+              })
+          .toList();
+      expect(aOutMaps, [
+        {'v': 'a', 'w': 'b'},
+      ]);
+
+      // outEdges('b') => List<Edge>? => 同理
+      final bOut = g.outEdges('b') ?? [];
+      final bOutMaps = bOut
+          .map((edge) => {
+                'v': edge.v,
+                'w': edge.w,
+                if (edge.name != null) 'name': edge.name
+              })
+          .toList();
+      expect(bOutMaps, [
+        {'v': 'b', 'w': 'c'},
+      ]);
+
+      // outEdges('c') => empty
       expect(g.outEdges('c'), <dynamic>[]);
     });
 
     test('works for multigraphs', () {
       final g2 = Graph(isMultigraph: true);
-      g2.setEdge('a', 'b');
-      g2.setEdge('a', 'b', null, 'bar');
-      g2.setEdge('a', 'b', null, 'foo');
-      final aOut = g2.outEdges('a')!..sort(sortEdges);
-      expect(
-          aOut
-              .map((e) =>
-                  {'v': e.v, 'w': e.w, if (e.name != null) 'name': e.name})
-              .toList(),
-          [
-            {'v': 'a', 'w': 'b', 'name': 'bar'},
-            {'v': 'a', 'w': 'b', 'name': 'foo'},
-            {'v': 'a', 'w': 'b'},
-          ]);
-      expect(g2.outEdges('b'), <dynamic>[]);
+      g2.setEdge('a', 'b'); // name=null
+      g2.setEdge('a', 'b', null, 'bar'); // name='bar'
+      g2.setEdge('a', 'b', null, 'foo'); // name='foo'
+
+      // inEdges('a') => no edges point to 'a'
+      expect(g2.inEdges('a'), <Edge>[]);
+
+      // edges from a -> b, total 3
+      final bIn = g2.inEdges('b')!; // => List<Edge>
+      bIn.sort(sortEdges); // sort by name 'bar' < 'foo' < (noName)
+
+      // 把Edge => Map
+      final bInMaps = bIn.map((e) {
+        final map = <String, dynamic>{'v': e.v, 'w': e.w};
+        if (e.name != null) map['name'] = e.name;
+        return map;
+      }).toList();
+
+      expect(bInMaps, [
+        {'v': 'a', 'w': 'b', 'name': 'bar'},
+        {'v': 'a', 'w': 'b', 'name': 'foo'},
+        {'v': 'a', 'w': 'b'},
+      ]);
     });
 
     test('can return only edges to a specified node', () {
@@ -1178,27 +1235,53 @@ void main() {
     test('returns all edges that this node points at', () {
       g.setEdge('a', 'b');
       g.setEdge('b', 'c');
-      final aEdges = g.nodeEdges('a')!;
-      expect(
-          aEdges,
-          [
-            {'v': 'a', 'w': 'b'},
-          ].map((e) => e).toList());
 
-      final bEdges = g.nodeEdges('b')!;
-      // JS => bEdges => [ {v:'a',w:'b'}, {v:'b',w:'c'} ]
-      // Dart => compare
+      // 1) nodeEdges('a') => [Edge(a,b)]
+      final aEdges = g.nodeEdges('a') ?? [];
+      // => 转为 [ {v:'a', w:'b', [name:...] } ]
+      final aEdgesMaps = aEdges
+          .map((e) => {
+                'v': e.v,
+                'w': e.w,
+                if (e.name != null) 'name': e.name,
+              })
+          .toList();
+      // 测试期望 [ {'v':'a','w':'b'} ]
+      expect(aEdgesMaps, [
+        {'v': 'a', 'w': 'b'},
+      ]);
+
+      // 2) nodeEdges('b') => [Edge(a,b), Edge(b,c)]
+      final bEdges = g.nodeEdges('b') ?? [];
+      // 先对 Edge 做排序
       bEdges.sort(sortEdges);
-      expect(bEdges.map((e) => {'v': e.v, 'w': e.w}).toList(), [
+      // => 转为 map
+      final bEdgesMaps = bEdges
+          .map((e) => {
+                'v': e.v,
+                'w': e.w,
+                if (e.name != null) 'name': e.name,
+              })
+          .toList();
+      // JS 测试期望 => [ {v:'a',w:'b'}, {v:'b',w:'c'} ]
+      expect(bEdgesMaps, [
         {'v': 'a', 'w': 'b'},
         {'v': 'b', 'w': 'c'},
       ]);
 
-      expect(
-          g.nodeEdges('c'),
-          [
-            {'v': 'b', 'w': 'c'},
-          ].map((e) => e).toList());
+      // 3) nodeEdges('c') => [Edge(b,c)]
+      final cEdges = g.nodeEdges('c') ?? [];
+      // => 转map
+      final cEdgesMaps = cEdges
+          .map((e) => {
+                'v': e.v,
+                'w': e.w,
+                if (e.name != null) 'name': e.name,
+              })
+          .toList();
+      expect(cEdgesMaps, [
+        {'v': 'b', 'w': 'c'},
+      ]);
     });
 
     test('works for multigraphs', () {

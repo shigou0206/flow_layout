@@ -7,8 +7,18 @@ class Edge {
 
   const Edge(this.v, this.w, [this.name]);
 
+  // 构建 edgeId
   String get id =>
       name != null ? '$v\u0001$w\u0001$name' : '$v\u0001$w\u0001\u0000';
+
+  // ==== 新增 ====
+  Map<String, dynamic> toJson() {
+    final map = <String, dynamic>{'v': v, 'w': w};
+    if (name != null && name!.isNotEmpty) {
+      map['name'] = name;
+    }
+    return map;
+  }
 }
 
 class Graph {
@@ -20,15 +30,19 @@ class Graph {
   dynamic Function(String)? defaultNodeLabelFn;
   dynamic Function(String, String, String?)? defaultEdgeLabelFn;
 
-  final Map<String, dynamic> nodes = {};
-  final Map<String, Map<String, Edge>> _in = {};
-  final Map<String, Map<String, int>> _preds = {};
-  final Map<String, Map<String, Edge>> _out = {};
-  final Map<String, Map<String, int>> _sucs = {};
+  /// 节点相关存储
+  final Map<String, dynamic> nodes = {}; // nodeId -> label
+  final Map<String, Map<String, Edge>> _in = {}; // nodeId -> (edgeId -> Edge)
+  final Map<String, Map<String, int>> _preds =
+      {}; // nodeId -> (predId -> count)
+  final Map<String, Map<String, Edge>> _out = {}; // nodeId -> (edgeId -> Edge)
+  final Map<String, Map<String, int>> _sucs = {}; // nodeId -> (succId -> count)
 
-  final Map<String, Edge> edgeObjs = {};
-  final Map<String, dynamic> edgeLabels = {};
+  /// 边的存储
+  final Map<String, Edge> edgeObjs = {}; // edgeId -> Edge
+  final Map<String, dynamic> edgeLabels = {}; // edgeId -> label
 
+  /// compound graph
   final Map<String, String?> _parent = {'\u0000': null};
   final Map<String, Set<String>> _children = {'\u0000': <String>{}};
 
@@ -44,7 +58,7 @@ class Graph {
     setDefaultEdgeLabel(null);
   }
 
-  /* ----------- Graph label ----------- */
+  /* ================= Graph label ================= */
   Graph setGraph(dynamic label) {
     this.label = label;
     return this;
@@ -52,7 +66,7 @@ class Graph {
 
   dynamic graph() => label;
 
-  /* ----------- Defaults ----------- */
+  /* ================= Defaults ================= */
   Graph setDefaultNodeLabel(dynamic newDefault) {
     if (newDefault is Function) {
       defaultNodeLabelFn = newDefault as dynamic Function(String);
@@ -64,36 +78,29 @@ class Graph {
 
   Graph setDefaultEdgeLabel(dynamic newDefault) {
     if (newDefault is Function) {
-      // 生成一个包装函数
       defaultEdgeLabelFn = (String v, String w, String? name) {
-        // 我们一次尝试 3参数, 如果调用失败, 再试 1参数, 再试 0参数
-        // 这样可兼容 JS 测试中的各种函数声明
+        // 兼容 JS: 可能是 0/1/3 参
         try {
-          // 先尝试: newDefault(v, w, name)
           return Function.apply(newDefault, [v, w, name]);
-        } catch (e1) {
+        } catch (_) {
           try {
-            // 再尝试: newDefault(v)
             return Function.apply(newDefault, [v]);
-          } catch (e2) {
+          } catch (_) {
             try {
-              // 最后尝试: newDefault()
               return Function.apply(newDefault, []);
-            } catch (e3) {
-              // 实在不行 => 返回 null
+            } catch (_) {
               return null;
             }
           }
         }
       };
     } else {
-      // 如果 newDefault 不是函数，就直接用常量
       defaultEdgeLabelFn = (_, __, ___) => newDefault;
     }
     return this;
   }
 
-  /* ----------- Node manipulation ----------- */
+  /* ================= Node manipulation ================= */
   Graph setNode(dynamic nodeId, [dynamic value]) {
     final v = '$nodeId';
     if (nodes.containsKey(v)) {
@@ -126,7 +133,9 @@ class Graph {
   }
 
   bool hasNode(dynamic nodeId) => nodes.containsKey('$nodeId');
+
   dynamic node(dynamic nodeId) => nodes['$nodeId'];
+
   List<String> getNodes() => nodes.keys.toList();
 
   Graph removeNode(dynamic nodeId) {
@@ -147,7 +156,6 @@ class Graph {
       for (var kid in kids) {
         setParent(kid, null);
       }
-
       final p = _parent[v];
       if (p != null) {
         _children[p]?.remove(v);
@@ -168,14 +176,15 @@ class Graph {
     return this;
   }
 
-  /* ----------- Compound Graph ----------- */
-  Graph setParent(dynamic nd, [dynamic parent]) {
+  /* ================= Compound graph ================= */
+  Graph setParent(dynamic nd, [dynamic maybeParent]) {
     if (!isCompound) {
       throw Exception('Not a compound graph');
     }
     final v = '$nd';
 
-    if (parent == null) {
+    // 1. 若没有指定 parent => 移除父节点
+    if (maybeParent == null) {
       final oldParent = _parent[v];
       if (oldParent != null) {
         _children[oldParent]?.remove(v);
@@ -188,33 +197,34 @@ class Graph {
       return this;
     }
 
-    final newParent = parent.toString().isEmpty ? '\u0000' : '$parent';
-    while (true) {
-      if (newParent == v) {
-        throw Exception('Cycle detected...');
-      }
-      final p = this.parent(newParent);
-      if (p == null) break;
-      if (p == v) {
-        throw Exception('Cycle detected...');
-      }
-      if (p.isEmpty) break;
-      final gp = this.parent(p);
-      if (gp == null) break;
-      if (gp == v) {
-        throw Exception('Cycle detected...');
-      }
-    }
+    // 2. 转成字符串 (非空)  -  但有可能是 "" => 用 '\u0000'
+    final parentStr = maybeParent.toString();
+    final newParent = parentStr.isEmpty ? '\u0000' : parentStr;
 
+    // 3. 确保 newParent/v 都已成为节点
     setNode(newParent);
     setNode(v);
 
+    // 4. 做循环检测: 追溯到最顶层看看是否出现 v 本身 => 会形成环
+    String? ancestor =
+        newParent; // newParent 是 String, 但要配合 parent(...) => String?
+    while (ancestor != null) {
+      if (ancestor == v) {
+        throw Exception(
+            "Setting $newParent as parent of $v would create a cycle");
+      }
+      ancestor = parent(ancestor); // parent(...) 返回 String? => 可能变 null
+    }
+
+    // 5. 把 v 从旧父节点移除
     final oldP = _parent[v];
     if (oldP == null) {
       _children['\u0000']?.remove(v);
     } else {
       _children[oldP]?.remove(v);
     }
+
+    // 6. 绑定新父节点
     _parent[v] = newParent;
     _children[newParent] ??= {};
     _children[newParent]!.add(v);
@@ -242,19 +252,20 @@ class Graph {
     return _children[v]?.toList();
   }
 
-  /* ----------- Edge manipulation ----------- */
-
+  /* ================= Edge manipulation ================= */
   Graph setEdge(
       [dynamic arg0,
       dynamic arg1 = _ArgSentinel.noVal,
       dynamic arg2 = _ArgSentinel.noVal,
       dynamic arg3 = _ArgSentinel.noVal]) {
+    // 1) parse v, w, name, value
     String v;
     String w;
     String? name;
     dynamic value = _ArgSentinel.noVal;
 
     if (arg0 is Map && arg0.containsKey('v') && arg0.containsKey('w')) {
+      // setEdge({ v:'a', w:'b', name:'foo' }, [value])
       v = '${arg0['v']}';
       w = '${arg0['w']}';
       name = arg0.containsKey('name') ? '${arg0['name']}' : null;
@@ -262,48 +273,53 @@ class Graph {
         value = arg1;
       }
     } else {
+      // setEdge(v, w, [value], [name])
       v = '$arg0';
       w = (arg1 != _ArgSentinel.noVal) ? '$arg1' : '';
       if (arg2 != _ArgSentinel.noVal) value = arg2;
       if (arg3 != _ArgSentinel.noVal) name = '$arg3';
     }
-    // 若 name=='null' 就当没 name
+
+    // 若 name == 'null' => 强制为 null
     if (name == 'null') {
       name = null;
     }
 
-    // 在无向图中, 若 v>w => 交换
+    // 如果是无向图，且 v > w => reorder
     if (!isDirected && v.compareTo(w) > 0) {
       final tmp = v;
       v = w;
       w = tmp;
     }
 
-    final e = Edge(v, w, name);
-    final id = e.id;
-
-    final bool labelProvided = (value != _ArgSentinel.noVal);
-
-    if (edgeLabels.containsKey(id)) {
-      // 已有 -> 只在显式提供 label 时覆盖
-      if (labelProvided) {
-        edgeLabels[id] = value;
-      }
-      return this;
-    }
-
+    // 如果 name != null 但不是多重图 => 抛异常
     if (name != null && !isMultigraph) {
       throw Exception('Cannot set a named edge when isMultigraph = false');
     }
 
+    // 构建 Edge / edgeId
+    final e = Edge(v, w, name);
+    final id = e.id;
+
+    // 是否显式提供 label
+    final bool labelProvided = (value != _ArgSentinel.noVal);
+
+    // =============== 检查是否已有这条边 ===============
+    if (edgeLabels.containsKey(id)) {
+      if (labelProvided) {
+        edgeLabels[id] = value; // 覆盖标签
+      }
+      return this;
+    }
+
+    // =============== 边不存在 => 创建新边 ===============
+    // 确保节点
     setNode(v);
     setNode(w);
 
-    if (labelProvided) {
-      edgeLabels[id] = value;
-    } else {
-      edgeLabels[id] = defaultEdgeLabelFn!(v, w, name);
-    }
+    // 若显式提供 label => 用 value；否则 => defaultEdgeLabelFn
+    final newLabel = labelProvided ? value : defaultEdgeLabelFn!(v, w, name);
+    edgeLabels[id] = newLabel;
 
     edgeObjs[id] = e;
     _preds[w]![v] = (_preds[w]![v] ?? 0) + 1;
@@ -326,8 +342,6 @@ class Graph {
     var v = '$src';
     var w = '$dst';
     var name = nm != null ? '$nm' : null;
-
-    // 无向图需要 reorder
     if (!isDirected && v.compareTo(w) > 0) {
       final tmp = v;
       v = w;
@@ -342,44 +356,32 @@ class Graph {
   }
 
   dynamic edge([dynamic arg0, dynamic arg1, dynamic arg2]) {
-    // arg0 可能是 { v:'a', w:'b', name:'...' } 或 src
-    // arg1 可能是 dst or label
-    // arg2 可能是 name
     String v;
     String w;
     String? name;
-
     if (arg0 is Map && arg0.containsKey('v') && arg0.containsKey('w')) {
-      // edge({v:'a', w:'b', name:'nm'})
       v = '${arg0['v']}';
       w = '${arg0['w']}';
       if (arg0.containsKey('name')) {
         name = '${arg0['name']}';
       }
     } else {
-      // edge(src, dst, name)
-      v = '$arg0'; // arg0 must not be null here
-      w = '$arg1'; // arg1
-      if (arg2 != null) {
-        // or skip if you want name is optional
-        name = '$arg2';
-      }
+      v = '$arg0';
+      w = arg1 != null ? '$arg1' : '';
+      if (arg2 != null) name = '$arg2';
     }
 
-    // 在无向图里也要进行 reorder
     if (!isDirected && v.compareTo(w) > 0) {
       final tmp = v;
       v = w;
       w = tmp;
     }
-    // if name == 'null' => name = null
     if (name == 'null') {
       name = null;
     }
 
-    // 现在拿到 id
     final id = Edge(v, w, name).id;
-    return edgeLabels[id]; // or 你原先的逻辑
+    return edgeLabels[id];
   }
 
   dynamic edgeAsObj([dynamic arg0, dynamic arg1, dynamic arg2]) {
@@ -387,7 +389,6 @@ class Graph {
     String w;
     String? name;
 
-    // 检测是否是对象模式
     if (arg0 is Map && arg0.containsKey('v') && arg0.containsKey('w')) {
       v = '${arg0['v']}';
       w = '${arg0['w']}';
@@ -395,7 +396,6 @@ class Graph {
         name = '${arg0['name']}';
       }
     } else {
-      // 正常 (src,dst,name)
       v = '$arg0';
       w = arg1 != null ? '$arg1' : '';
       if (arg2 != null) {
@@ -403,14 +403,11 @@ class Graph {
       }
     }
 
-    // 若是无向图，v>w 时交换
     if (!isDirected && v.compareTo(w) > 0) {
       final tmp = v;
       v = w;
       w = tmp;
     }
-
-    // 若 name=='null' -> name=null
     if (name == 'null') {
       name = null;
     }
@@ -427,20 +424,18 @@ class Graph {
   }
 
   Graph removeEdge([dynamic arg0, dynamic arg1, dynamic arg2]) {
-    // 判断第一个参数是否是 Map {v,w,name}
+    // 解析
     String v;
     String w;
     String? name;
 
     if (arg0 is Map && arg0.containsKey('v') && arg0.containsKey('w')) {
-      // removeEdge({v:'a',w:'b',name:'foo'})
       v = '${arg0['v']}';
       w = '${arg0['w']}';
       if (arg0.containsKey('name')) {
         name = '${arg0['name']}';
       }
     } else {
-      // removeEdge(src, dst, [name])
       v = '$arg0';
       w = arg1 != null ? '$arg1' : '';
       if (arg2 != null) {
@@ -448,13 +443,11 @@ class Graph {
       }
     }
 
-    // 若无向图 => reorder
     if (!isDirected && v.compareTo(w) > 0) {
       final tmp = v;
       v = w;
       w = tmp;
     }
-    // 若 name=='null' => name=null
     if (name == 'null') {
       name = null;
     }
@@ -463,7 +456,6 @@ class Graph {
     final e = edgeObjs[id];
     if (e == null) return this;
 
-    // 其余保持原逻辑
     final c1 = _preds[e.w]![e.v]! - 1;
     if (c1 == 0) {
       _preds[e.w]!.remove(e.v);
@@ -494,7 +486,8 @@ class Graph {
     final v = '$nodeId';
     final inMap = _in[v];
     if (inMap == null) return null;
-    final all = inMap.values.toList();
+
+    var all = inMap.values.toList(); // List<Edge>
     if (u == null) return all;
     final uu = '$u';
     return all.where((edge) => edge.v == uu).toList();
@@ -504,7 +497,8 @@ class Graph {
     final v = '$nodeId';
     final outMap = _out[v];
     if (outMap == null) return null;
-    final all = outMap.values.toList();
+
+    var all = outMap.values.toList(); // List<Edge>
     if (w == null) return all;
     final ww = '$w';
     return all.where((edge) => edge.w == ww).toList();
@@ -513,9 +507,11 @@ class Graph {
   List<Edge>? nodeEdges(dynamic nodeId, [dynamic other]) {
     final v = '$nodeId';
     if (!_in.containsKey(v) || !_out.containsKey(v)) return null;
+
     final results = <Edge>[];
     results.addAll(inEdges(v) ?? []);
     results.addAll(outEdges(v) ?? []);
+
     if (other != null) {
       final oo = '$other';
       return results.where((e) => e.v == oo || e.w == oo).toList();
@@ -523,7 +519,7 @@ class Graph {
     return results;
   }
 
-  /* ------------------ Graph queries ------------------ */
+  /* ================= Graph queries ================= */
   List<String>? successors(dynamic nodeId) {
     final v = '$nodeId';
     return _sucs[v]?.keys.toList();
