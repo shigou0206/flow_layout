@@ -1,16 +1,16 @@
 import 'dart:math';
-
 import 'package:flow_layout/graph/graph.dart';
-import 'package:flow_layout/layout/utils.dart'; // 假定 util.dart 中包含 range, buildLayerMatrix, applyWithChunking, mapValues 等工具函数
+import 'package:flow_layout/layout/utils.dart';
 
-/// 用于存储冲突信息，key 是较小的节点 id，value 是一个 Map，其中 key 为较大节点 id，值为 true
 typedef Conflicts = Map<String, Map<String, bool>>;
 
-/// 查找 type-1 冲突（非 inner segment 与 inner segment 相交）
+/* ===========================================================
+ * 1) findType1Conflicts
+ * ===========================================================
+ */
 Conflicts findType1Conflicts(Graph g, List<List<String>> layering) {
   final conflicts = <String, Map<String, bool>>{};
 
-  // 内部函数：处理相邻两层
   List<String> visitLayer(List<String> prevLayer, List<String> layer) {
     int k0 = 0;
     int scanPos = 0;
@@ -19,19 +19,18 @@ Conflicts findType1Conflicts(Graph g, List<List<String>> layering) {
 
     for (int i = 0; i < layer.length; i++) {
       final v = layer[i];
-      final w = findOtherInnerSegmentNode(g, v);
-      // 若 w 存在则取其 order，否则使用上一层的节点数
-      final k1 = (w != null && g.node(w) != null && g.node(w)['order'] is int)
-          ? g.node(w)['order'] as int
+      final w = _findOtherInnerSegmentNode(g, v);
+      final k1 = (w != null && g.node(w)?['order'] is int)
+          ? g.node(w)!['order'] as int
           : prevLayerLength;
+
       if (w != null || v == lastNode) {
-        // 处理从 scanPos 到 i 的节点
         for (var scanNode in layer.sublist(scanPos, i + 1)) {
           for (var u in g.predecessors(scanNode) ?? []) {
-            final uLabel = g.node(u);
-            final uPos = (uLabel['order'] is int) ? uLabel['order'] as int : 0;
+            final uNode = g.node(u);
+            final uPos = (uNode?['order'] is int) ? uNode!['order'] as int : 0;
             if ((uPos < k0 || k1 < uPos) &&
-                !(uLabel['dummy'] == true &&
+                !((uNode?['dummy'] == true) &&
                     (g.node(scanNode)?['dummy'] == true))) {
               addConflict(conflicts, u, scanNode);
             }
@@ -45,16 +44,48 @@ Conflicts findType1Conflicts(Graph g, List<List<String>> layering) {
   }
 
   if (layering.isNotEmpty) {
-    // 模拟 reduce，每次传入前一层和当前层
     for (int i = 1; i < layering.length; i++) {
       visitLayer(layering[i - 1], layering[i]);
     }
   }
-
   return conflicts;
 }
 
-/// 查找 type-2 冲突
+String? _findOtherInnerSegmentNode(Graph g, String v) {
+  final vNode = g.node(v);
+  if (vNode != null && vNode['dummy'] == true) {
+    for (var u in (g.predecessors(v) ?? [])) {
+      final uNode = g.node(u);
+      if (uNode != null && uNode['dummy'] == true) {
+        return u;
+      }
+    }
+  }
+  return null;
+}
+
+void addConflict(Conflicts conflicts, String v, String w) {
+  if (v.compareTo(w) > 0) {
+    final tmp = v;
+    v = w;
+    w = tmp;
+  }
+  conflicts.putIfAbsent(v, () => {})[w] = true;
+}
+
+bool hasConflict(Conflicts conflicts, String v, String w) {
+  if (v.compareTo(w) > 0) {
+    final tmp = v;
+    v = w;
+    w = tmp;
+  }
+  return conflicts[v] != null && conflicts[v]!.containsKey(w);
+}
+
+/* ===========================================================
+ * 2) findType2Conflicts
+ * ===========================================================
+ */
 Conflicts findType2Conflicts(Graph g, List<List<String>> layering) {
   final conflicts = <String, Map<String, bool>>{};
 
@@ -91,7 +122,7 @@ Conflicts findType2Conflicts(Graph g, List<List<String>> layering) {
       if (vNode != null && vNode['dummy'] == 'border') {
         final predecessors = g.predecessors(v) ?? [];
         if (predecessors.isNotEmpty) {
-          nextNorthPos = g.node(predecessors.first)['order'] as int? ?? 0;
+          nextNorthPos = (g.node(predecessors.first)?['order'] as int?) ?? 0;
           scan(south, southPos, southLookahead, prevNorthPos, nextNorthPos);
           southPos = southLookahead;
           prevNorthPos = nextNorthPos;
@@ -103,64 +134,29 @@ Conflicts findType2Conflicts(Graph g, List<List<String>> layering) {
   }
 
   if (layering.isNotEmpty) {
-    // 模拟 reduce，依次处理每两层
     for (int i = 1; i < layering.length; i++) {
       visitLayer(layering[i - 1], layering[i]);
     }
   }
-
   return conflicts;
 }
 
-/// 若节点 v 是 dummy，则返回其前驱中第一个 dummy 节点，否则返回 null
-String? findOtherInnerSegmentNode(Graph g, String v) {
-  final vNode = g.node(v);
-  if (vNode != null && vNode['dummy'] == true) {
-    for (var u in (g.predecessors(v) ?? [])) {
-      final uNode = g.node(u);
-      if (uNode != null && uNode['dummy'] == true) {
-        return u;
-      }
-    }
-  }
-  return null;
-}
-
-/// 添加冲突记录，顺序调整为较小的 id 在前
-void addConflict(Conflicts conflicts, String v, String w) {
-  if (v.compareTo(w) > 0) {
-    final tmp = v;
-    v = w;
-    w = tmp;
-  }
-  conflicts.putIfAbsent(v, () => {})[w] = true;
-}
-
-/// 判断 v 和 w 之间是否已有冲突记录
-bool hasConflict(Conflicts conflicts, String v, String w) {
-  if (v.compareTo(w) > 0) {
-    final tmp = v;
-    v = w;
-    w = tmp;
-  }
-  return conflicts[v] != null && conflicts[v]!.containsKey(w);
-}
-
-/// 用于返回 verticalAlignment 的结果
+/* ===========================================================
+ * 3) verticalAlignment
+ * ===========================================================
+ */
 class AlignmentResult {
   final Map<String, String> root;
   final Map<String, String> align;
   AlignmentResult(this.root, this.align);
 }
 
-/// 将节点尽可能对齐成垂直块。neighborFn 是一个函数，返回节点 v 的相邻节点（上层或下层）
 AlignmentResult verticalAlignment(Graph g, List<List<String>> layering,
-    Conflicts conflicts, List<String>? Function(String) neighborFn) {
+    Conflicts conflicts, List<String> Function(String)? neighborFn) {
   final Map<String, String> root = {};
   final Map<String, String> align = {};
   final Map<String, int> pos = {};
 
-  // 记录每个节点在所在层中的顺序
   for (var layer in layering) {
     for (int order = 0; order < layer.length; order++) {
       final v = layer[order];
@@ -173,9 +169,9 @@ AlignmentResult verticalAlignment(Graph g, List<List<String>> layering,
   for (var layer in layering) {
     int prevIdx = -1;
     for (var v in layer) {
-      var ws = neighborFn(v) ?? [];
+      final ws = (neighborFn != null) ? neighborFn(v) : <String>[];
       if (ws.isNotEmpty) {
-        ws.sort((a, b) => (pos[a] ?? 0) - (pos[b] ?? 0));
+        ws.sort((a, b) => (pos[a] ?? 0).compareTo(pos[b] ?? 0));
         final mp = (ws.length - 1) / 2;
         for (int i = mp.floor(); i <= mp.ceil(); i++) {
           final w = ws[i];
@@ -185,7 +181,7 @@ AlignmentResult verticalAlignment(Graph g, List<List<String>> layering,
             align[w] = v;
             root[v] = root[w]!;
             align[v] = root[w]!;
-            prevIdx = pos[w]!;
+            prevIdx = (pos[w] ?? 0);
           }
         }
       }
@@ -195,127 +191,139 @@ AlignmentResult verticalAlignment(Graph g, List<List<String>> layering,
   return AlignmentResult(root, align);
 }
 
-/// 水平压缩算法：给定对齐结果，计算每个 block 的 x 坐标
+/* ===========================================================
+ * 4) horizontalCompaction
+ * ===========================================================
+ */
 Map<String, num> horizontalCompaction(Graph g, List<List<String>> layering,
     Map<String, String> root, Map<String, String> align, bool reverseSep) {
+  print("=== horizontalCompaction ===");
+  print("reverseSep = $reverseSep");
   final Map<String, num> xs = {};
-  final blockG = buildBlockGraph(g, layering, root, reverseSep);
+  final blockG = _buildBlockGraph(g, layering, root, reverseSep);
   final borderType = reverseSep ? 'borderLeft' : 'borderRight';
 
-  print("=== horizontalCompaction 开始 ===");
-  print("blockG nodes: ${blockG.getNodes()}");
-
-  // 初始化 xs 对于 blockG 中的每个节点
-  for (final v in blockG.getNodes()) {
+  // 初始化 0
+  for (var v in blockG.getNodes()) {
     xs[v] = 0;
-    print("初始化 xs[$v] = 0");
   }
 
-  // 内部通用迭代器
   void iterate(void Function(String) setXsFunc,
       List<String> Function(String) nextNodesFunc) {
-    final List<String> stack = List.from(blockG.getNodes());
-    final Set<String> visited = {};
+    final stack = List.of(blockG.getNodes());
+    final visited = <String>{};
     while (stack.isNotEmpty) {
       final elem = stack.removeLast();
       if (visited.contains(elem)) {
-        print("迭代: 已访问 $elem，调用 setXsFunc");
         setXsFunc(elem);
       } else {
-        print("迭代: 访问 $elem");
         visited.add(elem);
         stack.add(elem);
-        final nextNodes = nextNodesFunc(elem);
-        print("迭代: $elem 的后继节点: $nextNodes");
-        stack.addAll(nextNodes);
+        stack.addAll(nextNodesFunc(elem));
       }
     }
   }
 
-  // 第一遍：确定最小坐标
   void pass1(String elem) {
     final inEdges = blockG.inEdges(elem) ?? [];
     num maxVal = 0;
-    print("pass1: 处理节点 $elem, inEdges: $inEdges");
     for (var e in inEdges) {
-      // 采用 blockG.edge(e.v, e.w, e.name) 形式取边值
-      final sepValue = (blockG.edge(e.v, e.w, e.name) as num?) ?? 0;
+      final w = blockG.edge(e);
+      final sepVal = (w is num) ? w : 0;
       final prevX = xs[e.v] ?? 0;
-      final value = prevX + sepValue;
-      print(
-          "pass1: edge from ${e.v} to $elem, sepValue=$sepValue, prevX=$prevX, value=$value");
-      maxVal = max(maxVal, value);
+      final val = prevX + sepVal;
+      maxVal = max(maxVal, val);
+      print("pass1: e=${e.v}->${e.w}, sepVal=$sepVal, prevX=$prevX => $val");
     }
     xs[elem] = maxVal;
-    print("pass1: 设定 xs[$elem] = $maxVal");
+    print("pass1: set xs[$elem] = $maxVal");
   }
 
-  // 第二遍：尽量向右移动
   void pass2(String elem) {
     final outEdges = blockG.outEdges(elem) ?? [];
     num minVal = double.infinity;
-    print("pass2: 处理节点 $elem, outEdges: $outEdges");
     for (var e in outEdges) {
-      final sepValue = (blockG.edge(e.v, e.w, e.name) as num?) ?? 0;
+      final w = blockG.edge(e);
+      final sepVal = (w is num) ? w : 0;
       final nextX = xs[e.w] ?? 0;
-      final value = nextX - sepValue;
-      print(
-          "pass2: edge from $elem to ${e.w}, sepValue=$sepValue, nextX=$nextX, value=$value");
-      minVal = min(minVal, value);
+      final val = nextX - sepVal;
+      print("pass2: e=${e.v}->${e.w}, sepVal=$sepVal, nextX=$nextX => $val");
+      minVal = min(minVal, val);
     }
-    final node = g.node(elem);
-    if (minVal != double.infinity && node?['borderType'] != borderType) {
-      xs[elem] = max(xs[elem] ?? 0, minVal);
-      print("pass2: 设定 xs[$elem] = ${xs[elem]} (minVal=$minVal)");
+    final nodeData = g.node(elem) ?? {};
+    if (minVal != double.infinity && nodeData['borderType'] != borderType) {
+      final oldVal = xs[elem] ?? 0;
+      xs[elem] = max(oldVal, minVal);
+      print("pass2: set xs[$elem] = ${xs[elem]} (was=$oldVal, minVal=$minVal)");
     } else {
       print(
-          "pass2: 对节点 $elem 不做调整 (minVal=$minVal, node['borderType']=${node?['borderType']})");
+          "pass2: no update for $elem (minVal=$minVal, borderType=${nodeData['borderType']})");
     }
   }
 
-  // 包装函数，确保类型正确
-  List<String> predecessorsWrapper(String v) => blockG.predecessors(v) ?? [];
-  List<String> successorsWrapper(String v) => blockG.successors(v) ?? [];
+  iterate(pass1, (v) => blockG.predecessors(v) ?? []);
+  print("after pass1, xs=$xs");
 
-  print("开始第一遍迭代 (pass1)...");
-  iterate(pass1, predecessorsWrapper);
-  print("第一遍迭代结束，xs: $xs");
+  iterate(pass2, (v) => blockG.successors(v) ?? []);
+  print("after pass2, xs=$xs");
 
-  print("开始第二遍迭代 (pass2)...");
-  iterate(pass2, successorsWrapper);
-  print("第二遍迭代结束，xs: $xs");
-
-  // 将 x 坐标赋值给所有节点：同一 block 中所有节点共享相同的 x 坐标
+  // assign back
   for (var v in align.keys) {
-    xs[v] = xs[root[v]] ?? 0;
-    print("对齐: 将 xs[$v] 设为 xs[${root[v]}] = ${xs[v]}");
+    final r = root[v];
+    final assigned = xs[r] ?? 0;
+    xs[v] = assigned;
+    print("align: xs[$v] = xs[$r] = $assigned");
   }
 
-  print("=== horizontalCompaction 结束, xs: $xs ===");
+  print("=== end horizontalCompaction => xs=$xs ===");
   return xs;
 }
 
-/// 构造 block 图，用于水平压缩。blockGraph 为简单图，节点为 block，边的权重由 sep 算法计算
-Graph buildBlockGraph(Graph g, List<List<String>> layering,
+/* ===========================================================
+ * 5) _buildBlockGraph
+ * ===========================================================
+ */
+Graph _buildBlockGraph(Graph g, List<List<String>> layering,
     Map<String, String> root, bool reverseSep) {
+  print("_buildBlockGraph: reverseSep=$reverseSep");
+
   final blockGraph = Graph()
     ..setGraph(g.graph())
     ..isMultigraph = false
     ..isCompound = false;
-  final graphLabel = g.graph();
-  final sepFn = sep(graphLabel['nodesep'] as num? ?? 0,
-      graphLabel['edgesep'] as num? ?? 0, reverseSep);
 
-  for (var layer in layering) {
+  print("blockGraph.isDirected = ${blockGraph.isDirected}");
+
+  final graphLabel = g.graph();
+  final nodesep = (graphLabel['nodesep'] as num?) ?? 0;
+  final edgesep = (graphLabel['edgesep'] as num?) ?? 0;
+  final sepFn = _sep(nodesep, edgesep, reverseSep);
+
+  print("_buildBlockGraph: nodeSep=$nodesep, edgeSep=$edgesep");
+
+  for (int layerIdx = 0; layerIdx < layering.length; layerIdx++) {
+    final layer = layering[layerIdx];
+    print("layer[$layerIdx]: $layer");
     String? u;
-    for (var v in layer) {
+    for (final v in layer) {
       final vRoot = root[v] ?? v;
-      blockGraph.setNode(vRoot, g.node(v));
+      if (!blockGraph.hasNode(vRoot)) {
+        blockGraph.setNode(vRoot);
+        print("setNode($vRoot)");
+      }
+
       if (u != null) {
         final uRoot = root[u] ?? u;
-        final prevMax = blockGraph.edge(uRoot, vRoot) as num? ?? 0;
+        if (!blockGraph.hasNode(uRoot)) {
+          blockGraph.setNode(uRoot);
+          print("setNode($uRoot)");
+        }
+        final prevVal = blockGraph.edge(uRoot, vRoot) as num? ?? 0;
         final sepVal = sepFn(g, v, u);
-        blockGraph.setEdge(uRoot, vRoot, max(sepVal, prevMax));
+        final newVal = max(prevVal, sepVal);
+        print(
+            "u=$u, v=$v => setEdge($uRoot->$vRoot, max($prevVal, $sepVal)=$newVal)");
+        blockGraph.setEdge(uRoot, vRoot, newVal);
       }
       u = v;
     }
@@ -324,7 +332,82 @@ Graph buildBlockGraph(Graph g, List<List<String>> layering,
   return blockGraph;
 }
 
-/// 返回所有 alignments 中宽度最小的那个 alignment 对应的 x 坐标 Map
+/* ===========================================================
+ * 6) _sep
+ * ===========================================================
+ */
+num Function(Graph, String, String) _sep(
+    num nodeSep, num edgeSep, bool reverseSep) {
+  return (Graph g, String v, String w) {
+    final vData = g.node(v) ?? {};
+    final wData = g.node(w) ?? {};
+
+    final vWidth = (vData['width'] is num) ? vData['width'] as num : 0;
+    final wWidth = (wData['width'] is num) ? wData['width'] as num : 0;
+
+    print(
+        "_sep: v=$v (width=$vWidth,dummy=${vData['dummy']},labelpos=${vData['labelpos']}),"
+        " w=$w (width=$wWidth,dummy=${wData['dummy']},labelpos=${wData['labelpos']}),"
+        " nodeSep=$nodeSep, edgeSep=$edgeSep, reverse=$reverseSep");
+
+    num sum = 0;
+    num delta = 0;
+
+    // v half width
+    sum += vWidth / 2;
+
+    if (vData['labelpos'] is String) {
+      final labelPos = (vData['labelpos'] as String).toLowerCase();
+      switch (labelPos) {
+        case 'l':
+          delta = -vWidth / 2;
+          break;
+        case 'r':
+          delta = vWidth / 2;
+          break;
+      }
+      if (delta != 0) {
+        sum += reverseSep ? delta : -delta;
+      }
+      delta = 0;
+    }
+
+    final isVDummy = (vData['dummy'] == true ||
+        vData['dummy'] == 'edge' ||
+        vData['dummy'] == 'edge-label');
+    sum += ((isVDummy ? edgeSep : nodeSep) / 2);
+
+    final isWDummy = (wData['dummy'] == true ||
+        wData['dummy'] == 'edge' ||
+        wData['dummy'] == 'edge-label');
+    sum += ((isWDummy ? edgeSep : nodeSep) / 2);
+
+    sum += wWidth / 2;
+
+    if (wData['labelpos'] is String) {
+      final labelPos = (wData['labelpos'] as String).toLowerCase();
+      switch (labelPos) {
+        case 'l':
+          delta = wWidth / 2;
+          break;
+        case 'r':
+          delta = -wWidth / 2;
+          break;
+      }
+      if (delta != 0) {
+        sum += reverseSep ? delta : -delta;
+      }
+    }
+
+    print("_sep => result=$sum");
+    return sum;
+  };
+}
+
+/* ===========================================================
+ * 7) findSmallestWidthAlignment
+ * ===========================================================
+ */
 Map<String, num> findSmallestWidthAlignment(
     Graph g, Map<String, Map<String, num>> xss) {
   Map<String, num>? bestXs;
@@ -334,9 +417,9 @@ Map<String, num> findSmallestWidthAlignment(
     num minX = double.infinity;
     num maxX = double.negativeInfinity;
     xs.forEach((v, x) {
-      final halfWidth = width(g, v) / 2;
-      maxX = max(maxX, x + halfWidth);
-      minX = min(minX, x - halfWidth);
+      final halfW = _width(g, v) / 2;
+      maxX = max(maxX, x + halfW);
+      minX = min(minX, x - halfW);
     });
     final curWidth = maxX - minX;
     if (curWidth < bestWidth) {
@@ -347,18 +430,24 @@ Map<String, num> findSmallestWidthAlignment(
   return bestXs ?? {};
 }
 
-/// 对齐各个 alignment 的坐标，使其左对齐或右对齐于最小宽度 alignment
+/* ===========================================================
+ * 8) alignCoordinates
+ * ===========================================================
+ */
 void alignCoordinates(
     Map<String, Map<String, num>> xss, Map<String, num> alignTo) {
-  final alignToVals = alignTo.values.toList();
-  final alignToMin = applyWithChunking(alignToVals, min);
-  final alignToMax = applyWithChunking(alignToVals, max);
+  final atVals = alignTo.values.toList();
+  if (atVals.isEmpty) return;
+
+  final alignToMin = applyWithChunking(atVals, min);
+  final alignToMax = applyWithChunking(atVals, max);
 
   for (var vert in ['u', 'd']) {
     for (var horiz in ['l', 'r']) {
       final alignment = vert + horiz;
       final xs = xss[alignment];
       if (xs == null || xs == alignTo) continue;
+
       final xsVals = xs.values.toList();
       num delta;
       if (horiz == 'l') {
@@ -367,147 +456,91 @@ void alignCoordinates(
         delta = alignToMax - applyWithChunking(xsVals, max);
       }
       if (delta != 0) {
-        xss[alignment] = mapValues(xs, (x, key) => x + delta);
+        xss[alignment] = mapValues(xs, (val, key) => val + delta);
       }
     }
   }
 }
 
-/// 根据对齐结果平衡各个方向的坐标。若 g.graph()['align'] 存在，则返回该方向的对齐值，否则取中位数附近的平均值
+/* ===========================================================
+ * 9) balance
+ * ===========================================================
+ */
 Map<String, num> balance(Map<String, Map<String, num>> xss, [String? align]) {
-  return mapValues(xss['ul']!, (num numVal, String v) {
-    if (align != null) {
-      return xss[align.toLowerCase()]![v]!;
-    } else {
-      final xsList = xss.values.map((xs) => xs[v]!).toList()..sort();
-      // 取第二和第三个的平均值（假定 xss 有 4 个方向）
-      return (xsList[1] + xsList[2]) / 2;
-    }
-  });
+  final ul = xss['ul']!;
+  if (align != null) {
+    final a = align.toLowerCase();
+    return mapValues(ul, (val, v) {
+      return xss[a]![v]!;
+    });
+  } else {
+    return mapValues(ul, (val, v) {
+      final coords = xss.values.map((xs) => xs[v]!).toList()..sort();
+      return (coords[1] + coords[2]) / 2;
+    });
+  }
 }
 
-/// 主函数，计算所有节点的 x 坐标
+/* ===========================================================
+ * 10) positionX
+ * ===========================================================
+ */
 Map<String, num> positionX(Graph g) {
-  final layering =
-      buildLayerMatrix(g); // 假定 buildLayerMatrix 返回 List<List<String>>
-  final conflicts = {
-    ...findType1Conflicts(g, layering),
-    ...findType2Conflicts(g, layering)
-  };
+  print("=== positionX START ===");
+  final layering = buildLayerMatrix(g);
+  print("layering=$layering");
+
+  final c1 = findType1Conflicts(g, layering);
+  final c2 = findType2Conflicts(g, layering);
+  final conflicts = {...c1, ...c2};
+  print("type1Conflicts=$c1, type2Conflicts=$c2");
 
   final Map<String, Map<String, num>> xss = {};
-  List<List<String>> adjustedLayering = [];
+
   for (var vert in ['u', 'd']) {
-    // 根据 vertical 参数决定 layer 顺序
-    adjustedLayering = (vert == 'u') ? layering : List.from(layering.reversed);
+    final usedLayering = (vert == 'u') ? layering : layering.reversed.toList();
     for (var horiz in ['l', 'r']) {
-      List<List<String>> currLayering = [];
+      List<List<String>> currLayering;
       if (horiz == 'r') {
-        currLayering = adjustedLayering
-            .map((inner) => List<String>.from(inner.reversed))
-            .toList();
+        currLayering =
+            usedLayering.map((lyr) => lyr.reversed.toList()).toList();
       } else {
-        currLayering = adjustedLayering;
+        currLayering = usedLayering;
       }
-      // 根据上下层决定邻接函数
+
       final neighborFn = (vert == 'u')
-          ? (String v) => g.predecessors(v)
-          : (String v) => g.successors(v);
+          ? (String v) => g.predecessors(v) ?? []
+          : (String v) => g.successors(v) ?? [];
+
+      print("call verticalAlignment with vert=$vert horiz=$horiz");
       final alignment =
           verticalAlignment(g, currLayering, conflicts, neighborFn);
+
+      print("call horizontalCompaction with vert=$vert horiz=$horiz");
       var xs = horizontalCompaction(
-          g, currLayering, alignment.root, alignment.align, horiz == 'r');
+          g, currLayering, alignment.root, alignment.align, (horiz == 'r'));
       if (horiz == 'r') {
-        xs = mapValues(xs, (x, key) => -x);
+        xs = mapValues(xs, (val, key) => -val);
       }
       xss[vert + horiz] = xs;
     }
   }
 
-  final smallestWidth = findSmallestWidthAlignment(g, xss);
-  alignCoordinates(xss, smallestWidth);
-  return balance(xss, g.graph()['align'] as String?);
+  final best = findSmallestWidthAlignment(g, xss);
+  alignCoordinates(xss, best);
+  final balanced = balance(xss, g.graph()['align'] as String?);
+  print("=== positionX END => $balanced ===");
+  return balanced;
 }
 
-/// 返回一个分离函数，用于计算两个节点之间的间隔
-num Function(Graph, String, String) sep(
-    num nodeSep, num edgeSep, bool reverseSep) {
-  return (Graph g, String v, String w) {
-    final vLabel = g.node(v) ?? <String, dynamic>{};
-    final wLabel = g.node(w) ?? <String, dynamic>{};
-
-    // v、w 各自的半宽
-    num sum = 0;
-    num delta = 0;
-
-    // --- 处理 v ---
-    final vWidth = (vLabel["width"] as num?) ?? 0;
-    sum += vWidth / 2;
-
-    // labelpos 处理
-    if (vLabel["labelpos"] is String) {
-      final labelpos = (vLabel["labelpos"] as String).toLowerCase();
-      switch (labelpos) {
-        case "l":
-          // label 在左侧，多加半个宽度
-          delta = -vWidth / 2;
-          break;
-        case "r":
-          // label 在右侧
-          delta = vWidth / 2;
-          break;
-        case "c":
-        default:
-          // 中心对齐，相当于什么都不加
-          delta = 0;
-          break;
-      }
-    }
-    // 如果 reverseSep = true，则符号相反
-    if (delta != 0) {
-      sum += reverseSep ? delta : -delta;
-    }
-
-    // --- 节点或 dummy 的间隔 ---
-    final isVDummy = vLabel["dummy"] == true ||
-        vLabel["dummy"] == "edge" ||
-        vLabel["dummy"] == "edge-label";
-    sum += (isVDummy ? edgeSep : nodeSep) / 2;
-
-    // --- 处理 w ---
-    final wWidth = (wLabel["width"] as num?) ?? 0;
-    final isWDummy = wLabel["dummy"] == true ||
-        wLabel["dummy"] == "edge" ||
-        wLabel["dummy"] == "edge-label";
-    sum += (isWDummy ? edgeSep : nodeSep) / 2;
-
-    sum += wWidth / 2;
-    delta = 0;
-    if (wLabel["labelpos"] is String) {
-      final labelpos = (wLabel["labelpos"] as String).toLowerCase();
-      switch (labelpos) {
-        case "l":
-          delta = wWidth / 2;
-          break;
-        case "r":
-          delta = -wWidth / 2;
-          break;
-        case "c":
-        default:
-          delta = 0;
-          break;
-      }
-    }
-    if (delta != 0) {
-      sum += reverseSep ? delta : -delta;
-    }
-
-    return sum;
-  };
-}
-
-/// 返回节点的宽度
-num width(Graph g, String v) {
+/* ===========================================================
+ * 11) _width
+ * ===========================================================
+ */
+num _width(Graph g, String v) {
   final node = g.node(v);
-  return (node != null && node.containsKey('width')) ? node['width'] as num : 0;
+  if (node != null && node['width'] is num) {
+    return node['width'] as num;
+  }
+  return 0;
 }

@@ -175,8 +175,8 @@ void main() {
         g.setNode("b", <String, dynamic>{"rank": 1, "order": 0});
         final layering = buildLayerMatrix(g);
         final conflicts = <String, Map<String, bool>>{};
-        final result =
-            bk.verticalAlignment(g, layering, conflicts, g.predecessors);
+        final result = bk.verticalAlignment(
+            g, layering, conflicts, (String v) => g.predecessors(v) ?? []);
         expect(result.root, equals({"a": "a", "b": "b"}));
         expect(result.align, equals({"a": "a", "b": "b"}));
       });
@@ -187,8 +187,8 @@ void main() {
         g.setEdge("a", "b");
         final layering = buildLayerMatrix(g);
         final conflicts = <String, Map<String, bool>>{};
-        final result =
-            bk.verticalAlignment(g, layering, conflicts, g.predecessors);
+        final result = bk.verticalAlignment(
+            g, layering, conflicts, (String v) => g.predecessors(v) ?? []);
         expect(result.root, equals({"a": "a", "b": "a"}));
         expect(result.align, equals({"a": "b", "b": "a"}));
       });
@@ -201,8 +201,8 @@ void main() {
         g.setEdge("b", "c");
         final layering = buildLayerMatrix(g);
         final conflicts = <String, Map<String, bool>>{};
-        final result =
-            bk.verticalAlignment(g, layering, conflicts, g.predecessors);
+        final result = bk.verticalAlignment(
+            g, layering, conflicts, (String v) => g.predecessors(v) ?? []);
         expect(result.root, equals({"a": "a", "b": "b", "c": "a"}));
         expect(result.align, equals({"a": "c", "b": "b", "c": "a"}));
       });
@@ -216,8 +216,8 @@ void main() {
         g.setEdge("b", "c");
         final layering = buildLayerMatrix(g);
         final conflicts = <String, Map<String, bool>>{};
-        final result =
-            bk.verticalAlignment(g, layering, conflicts, g.predecessors);
+        final result = bk.verticalAlignment(
+            g, layering, conflicts, (String v) => g.predecessors(v) ?? []);
         // 期望 z 的 block 为 z，自身对齐，c 与 z 对齐
         expect(result.root, equals({"z": "z", "b": "b", "c": "z"}));
         expect(result.align, equals({"z": "c", "b": "b", "c": "z"}));
@@ -232,8 +232,8 @@ void main() {
         final layering = buildLayerMatrix(g);
         final conflicts = <String, Map<String, bool>>{};
         bk.addConflict(conflicts, "a", "c");
-        final result =
-            bk.verticalAlignment(g, layering, conflicts, g.predecessors);
+        final result = bk.verticalAlignment(
+            g, layering, conflicts, (String v) => g.predecessors(v) ?? []);
         expect(result.root, equals({"a": "a", "b": "b", "c": "b"}));
         expect(result.align, equals({"a": "a", "b": "c", "c": "b"}));
       });
@@ -248,8 +248,8 @@ void main() {
         g.setEdge("b", "d");
         final layering = buildLayerMatrix(g);
         final conflicts = <String, Map<String, bool>>{};
-        final result =
-            bk.verticalAlignment(g, layering, conflicts, g.predecessors);
+        final result = bk.verticalAlignment(
+            g, layering, conflicts, (String v) => g.predecessors(v) ?? []);
         // 此处：c 与 b 对齐，因此 d 无法与 a 对齐，因为 (a,d) 与 (c,b) 交叉
         expect(result.root, equals({"a": "a", "b": "b", "c": "b", "d": "d"}));
         expect(result.align, equals({"a": "a", "b": "c", "c": "b", "d": "d"}));
@@ -266,8 +266,8 @@ void main() {
         g.setEdge("c", "d");
         final layering = buildLayerMatrix(g);
         final conflicts = <String, Map<String, bool>>{};
-        final result =
-            bk.verticalAlignment(g, layering, conflicts, g.predecessors);
+        final result = bk.verticalAlignment(
+            g, layering, conflicts, (String v) => g.predecessors(v) ?? []);
         expect(result.root, equals({"a": "a", "b": "b", "c": "c", "d": "b"}));
         expect(result.align, equals({"a": "a", "b": "d", "c": "c", "d": "b"}));
       });
@@ -281,8 +281,8 @@ void main() {
         g.setPath(["a", "c", "d"]);
         final layering = buildLayerMatrix(g);
         final conflicts = <String, Map<String, bool>>{};
-        final result =
-            bk.verticalAlignment(g, layering, conflicts, g.predecessors);
+        final result = bk.verticalAlignment(
+            g, layering, conflicts, (String v) => g.predecessors(v) ?? []);
         expect(result.root, equals({"a": "a", "b": "a", "c": "c", "d": "a"}));
         expect(result.align, equals({"a": "b", "b": "d", "c": "c", "d": "a"}));
       });
