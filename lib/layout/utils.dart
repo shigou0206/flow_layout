@@ -1,4 +1,8 @@
+import 'dart:math';
 import 'package:flow_layout/graph/graph.dart';
+
+// ignore: constant_identifier_names
+const int CHUNKING_THRESHOLD = 65535;
 
 int maxRank(Graph g) {
   // 查找最大 rank
@@ -12,46 +16,27 @@ int maxRank(Graph g) {
   return ranks.reduce((a, b) => a > b ? a : b);
 }
 
-// List<List<String>> buildLayerMatrix(Graph g) {
-//   final maximum = maxRank(g);
-//   final layers = List.generate(maximum + 1, (_) => <String>[]);
-
-//   for (final v in g.getNodes()) {
-//     final node = g.node(v);
-//     if (node is Map && node['rank'] != null && node['order'] != null) {
-//       final int rank = node['rank'];
-//       final int order = node['order'];
-//       if (layers[rank].length <= order) {
-//         layers[rank].length = order + 1;
-//       }
-//       layers[rank][order] = v;
-//     }
-//   }
-
-//   return layers;
-// }
-
 // 修正后的 buildLayerMatrix
 List<List<String>> buildLayerMatrix(Graph g) {
-  final layers = <int, List<String>>{};
+  // 计算最大 rank，这里假设 maxRank(g) 已经实现
+  final int maxRankValue = maxRank(g) + 1;
+  // 初始化层次矩阵，每一层都是空列表
+  final layering = List<List<String>>.generate(maxRankValue, (_) => []);
 
+  // 遍历所有节点，根据节点的 rank 和 order 放入对应层
   for (final v in g.getNodes()) {
-    final nodeData = g.node(v) as Map?;
-    if (nodeData == null || nodeData['rank'] == null) continue; // 新增保护代码
-    final rank = nodeData['rank'] as int;
-
-    if (!layers.containsKey(rank)) layers[rank] = [];
-    layers[rank]!.add(v);
+    final node = g.node(v);
+    if (node != null && node["rank"] != null) {
+      final int rank = node["rank"] as int;
+      final int order = node["order"] as int;
+      // 确保该层列表足够长，以便直接使用 order 作为索引
+      while (layering[rank].length <= order) {
+        layering[rank].add('');
+      }
+      layering[rank][order] = v;
+    }
   }
-
-  final maxRank = layers.keys.fold(0, (a, b) => a > b ? a : b);
-  final result = List.generate(maxRank + 1, (_) => <String>[]);
-
-  for (final entry in layers.entries) {
-    result[entry.key] = entry.value;
-  }
-
-  return result;
+  return layering;
 }
 
 void normalizeRanks(Graph g) {
@@ -182,7 +167,7 @@ Graph asNonCompoundGraph(Graph g) {
 
   // copy non-subgraph-nodes
   for (var v in g.getNodes()) {
-    // 只有没有 children 才是“实节点”
+    // 只有没有 children 才是"实节点"
     if ((g.children(v) ?? []).isEmpty) {
       ng.setNode(v, g.node(v));
     }
@@ -325,4 +310,30 @@ void addSubgraphConstraints(Graph g, Graph cg, List<String> vs) {
       child = parent;
     }
   }
+}
+
+dynamic applyWithChunking(List argsArray, Function fn) {
+  if (argsArray.length > CHUNKING_THRESHOLD) {
+    // 将 argsArray 拆分成多个子列表
+    final chunks = splitToChunks(argsArray);
+    // 对每个子列表调用 fn，收集中间结果
+    final intermediate =
+        chunks.map((chunk) => Function.apply(fn, chunk)).toList();
+    // 再将中间结果作为参数调用 fn
+    return Function.apply(fn, intermediate);
+  } else {
+    return Function.apply(fn, argsArray);
+  }
+}
+
+// ignore: constant_identifier_names
+
+List<List<T>> splitToChunks<T>(List<T> array,
+    [int chunkSize = CHUNKING_THRESHOLD]) {
+  final chunks = <List<T>>[];
+  for (int i = 0; i < array.length; i += chunkSize) {
+    final chunk = array.sublist(i, min(i + chunkSize, array.length));
+    chunks.add(chunk);
+  }
+  return chunks;
 }
