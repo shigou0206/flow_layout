@@ -1,5 +1,6 @@
 import 'dart:collection';
 import 'package:flow_layout/graph/graph.dart';
+import 'package:flow_layout/layout/order/barycenter.dart';
 
 class ConflictEntry {
   List<String> vs;
@@ -47,20 +48,18 @@ bool listEquals<T>(List<T> a, List<T> b) {
   return true;
 }
 
-List<ConflictEntry> resolveConflicts(
-    List<Map<String, dynamic>> entries, Graph cg) {
+List<ConflictEntry> resolveConflicts(List<BarycenterResult> entries, Graph cg) {
   final mappedEntries = <String, ConflictEntry>{};
 
   for (var i = 0; i < entries.length; i++) {
     final entry = entries[i];
-    final v = entry['v'] as String;
     final tmp = ConflictEntry(
-      vs: [v],
+      vs: [entry.v],
       i: i,
-      barycenter: entry['barycenter'] as double?,
-      weight: entry['weight'] as double?,
+      barycenter: entry.barycenter,
+      weight: entry.weight,
     );
-    mappedEntries[v] = tmp;
+    mappedEntries[entry.v] = tmp;
   }
 
   for (var e in cg.edges()) {

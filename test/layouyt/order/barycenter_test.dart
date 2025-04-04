@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flow_layout/graph/graph.dart';
-import 'package:flow_layout/layout/utils.dart';
+import 'package:flow_layout/layout/order/barycenter.dart';
 
 void main() {
   group('order/barycenter', () {

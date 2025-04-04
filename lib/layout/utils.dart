@@ -12,23 +12,46 @@ int maxRank(Graph g) {
   return ranks.reduce((a, b) => a > b ? a : b);
 }
 
+// List<List<String>> buildLayerMatrix(Graph g) {
+//   final maximum = maxRank(g);
+//   final layers = List.generate(maximum + 1, (_) => <String>[]);
+
+//   for (final v in g.getNodes()) {
+//     final node = g.node(v);
+//     if (node is Map && node['rank'] != null && node['order'] != null) {
+//       final int rank = node['rank'];
+//       final int order = node['order'];
+//       if (layers[rank].length <= order) {
+//         layers[rank].length = order + 1;
+//       }
+//       layers[rank][order] = v;
+//     }
+//   }
+
+//   return layers;
+// }
+
+// 修正后的 buildLayerMatrix
 List<List<String>> buildLayerMatrix(Graph g) {
-  final maximum = maxRank(g);
-  final layers = List.generate(maximum + 1, (_) => <String>[]);
+  final layers = <int, List<String>>{};
 
   for (final v in g.getNodes()) {
-    final node = g.node(v);
-    if (node is Map && node['rank'] != null && node['order'] != null) {
-      final int rank = node['rank'];
-      final int order = node['order'];
-      if (layers[rank].length <= order) {
-        layers[rank].length = order + 1;
-      }
-      layers[rank][order] = v;
-    }
+    final nodeData = g.node(v) as Map?;
+    if (nodeData == null || nodeData['rank'] == null) continue; // 新增保护代码
+    final rank = nodeData['rank'] as int;
+
+    if (!layers.containsKey(rank)) layers[rank] = [];
+    layers[rank]!.add(v);
   }
 
-  return layers;
+  final maxRank = layers.keys.fold(0, (a, b) => a > b ? a : b);
+  final result = List.generate(maxRank + 1, (_) => <String>[]);
+
+  for (final entry in layers.entries) {
+    result[entry.key] = entry.value;
+  }
+
+  return result;
 }
 
 void normalizeRanks(Graph g) {
@@ -302,64 +325,4 @@ void addSubgraphConstraints(Graph g, Graph cg, List<String> vs) {
       child = parent;
     }
   }
-}
-
-class BarycenterResult {
-  final String v;
-  final double? barycenter;
-  final double? weight;
-
-  BarycenterResult({required this.v, this.barycenter, this.weight});
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is BarycenterResult &&
-          runtimeType == other.runtimeType &&
-          v == other.v &&
-          barycenter == other.barycenter &&
-          weight == other.weight;
-
-  @override
-  int get hashCode => Object.hash(v, barycenter, weight);
-
-  @override
-  String toString() =>
-      'BarycenterResult(v: $v, barycenter: $barycenter, weight: $weight)';
-}
-
-List<BarycenterResult> barycenter(Graph g, [List<String>? movable]) {
-  movable ??= [];
-
-  return movable.map((v) {
-    // 1) 获取所有入边
-    final inEdges = g.inEdges(v);
-
-    // 2) 若无入边 => 直接返回
-    if (inEdges == null || inEdges.isEmpty) {
-      return BarycenterResult(v: v);
-    } else {
-      double sum = 0.0;
-      double totalWeight = 0.0;
-
-      for (var e in inEdges) {
-        final edgeLabel = g.edge(e.v, e.w, e.name);
-        final nodeU = g.node(e.v);
-
-        final weight =
-            ((edgeLabel is Map ? edgeLabel['weight'] : null) ?? 1).toDouble();
-        final order = ((nodeU is Map ? nodeU['order'] : null) ?? 0).toDouble();
-
-        sum += weight * order;
-        totalWeight += weight;
-      }
-      final bc = totalWeight > 0 ? sum / totalWeight : null;
-
-      return BarycenterResult(
-        v: v,
-        barycenter: bc,
-        weight: totalWeight,
-      );
-    }
-  }).toList();
 }
