@@ -433,44 +433,75 @@ Map<String, num> positionX(Graph g) {
 num Function(Graph, String, String) sep(
     num nodeSep, num edgeSep, bool reverseSep) {
   return (Graph g, String v, String w) {
-    final vLabel = g.node(v);
-    final wLabel = g.node(w);
+    final vLabel = g.node(v) ?? <String, dynamic>{};
+    final wLabel = g.node(w) ?? <String, dynamic>{};
+
+    // v、w 各自的半宽
     num sum = 0;
     num delta = 0;
 
-    sum += (vLabel['width'] as num) / 2;
-    if (vLabel.containsKey('labelpos')) {
-      switch ((vLabel['labelpos'] as String).toLowerCase()) {
-        case 'l':
-          delta = -((vLabel['width'] as num) / 2);
+    // --- 处理 v ---
+    final vWidth = (vLabel["width"] as num?) ?? 0;
+    sum += vWidth / 2;
+
+    // labelpos 处理
+    if (vLabel["labelpos"] is String) {
+      final labelpos = (vLabel["labelpos"] as String).toLowerCase();
+      switch (labelpos) {
+        case "l":
+          // label 在左侧，多加半个宽度
+          delta = -vWidth / 2;
           break;
-        case 'r':
-          delta = (vLabel['width'] as num) / 2;
+        case "r":
+          // label 在右侧
+          delta = vWidth / 2;
+          break;
+        case "c":
+        default:
+          // 中心对齐，相当于什么都不加
+          delta = 0;
           break;
       }
     }
+    // 如果 reverseSep = true，则符号相反
     if (delta != 0) {
       sum += reverseSep ? delta : -delta;
     }
+
+    // --- 节点或 dummy 的间隔 ---
+    final isVDummy = vLabel["dummy"] == true ||
+        vLabel["dummy"] == "edge" ||
+        vLabel["dummy"] == "edge-label";
+    sum += (isVDummy ? edgeSep : nodeSep) / 2;
+
+    // --- 处理 w ---
+    final wWidth = (wLabel["width"] as num?) ?? 0;
+    final isWDummy = wLabel["dummy"] == true ||
+        wLabel["dummy"] == "edge" ||
+        wLabel["dummy"] == "edge-label";
+    sum += (isWDummy ? edgeSep : nodeSep) / 2;
+
+    sum += wWidth / 2;
     delta = 0;
-
-    sum += ((vLabel['dummy'] == true ? edgeSep : nodeSep) / 2);
-    sum += ((wLabel['dummy'] == true ? edgeSep : nodeSep) / 2);
-
-    sum += (wLabel['width'] as num) / 2;
-    if (wLabel.containsKey('labelpos')) {
-      switch ((wLabel['labelpos'] as String).toLowerCase()) {
-        case 'l':
-          delta = (wLabel['width'] as num) / 2;
+    if (wLabel["labelpos"] is String) {
+      final labelpos = (wLabel["labelpos"] as String).toLowerCase();
+      switch (labelpos) {
+        case "l":
+          delta = wWidth / 2;
           break;
-        case 'r':
-          delta = -((wLabel['width'] as num) / 2);
+        case "r":
+          delta = -wWidth / 2;
+          break;
+        case "c":
+        default:
+          delta = 0;
           break;
       }
     }
     if (delta != 0) {
       sum += reverseSep ? delta : -delta;
     }
+
     return sum;
   };
 }
