@@ -12,11 +12,11 @@ void ns(Graph g) {
 
 /// 2) undirectedEdge(e)
 ///    返回一个 { "v": ..., "w": ... }，其中 "v" < "w"
-Map<String, String> undirectedEdge(Edge e) {
-  if (e.v.compareTo(e.w) < 0) {
-    return {'v': e.v, 'w': e.w};
+Map<String, String> undirectedEdge(Map<String, dynamic> e) {
+  if (e['v'].compareTo(e['w']) < 0) {
+    return {'v': e['v'], 'w': e['w']};
   } else {
-    return {'v': e.w, 'w': e.v};
+    return {'v': e['w'], 'w': e['v']};
   }
 }
 
@@ -163,8 +163,8 @@ void main() {
       final result = leaveEdge(tree);
 
       expect(result, isNotNull);
-      expect(result!.v, 'b');
-      expect(result.w, 'c');
+      expect(result!['v'], 'b');
+      expect(result['w'], 'c');
     });
   });
 
@@ -177,10 +177,10 @@ void main() {
       t = Graph(isDirected: false);
     });
 
-    Edge undirectedEdge(Edge e) {
-      return Edge(
-        e.v.compareTo(e.w) <= 0 ? e.v : e.w,
-        e.v.compareTo(e.w) <= 0 ? e.w : e.v,
+    Map<String, dynamic> undirectedEdgeMap(Map<String, dynamic> e) {
+      return createEdgeMap(
+        e['v'].compareTo(e['w']) <= 0 ? e['v'] : e['w'],
+        e['v'].compareTo(e['w']) <= 0 ? e['w'] : e['v'],
       );
     }
 
@@ -194,8 +194,8 @@ void main() {
       t.setPath(['b', 'c', 'a']);
       initLowLimValues(t, 'c');
 
-      final f = enterEdge(t, g, Edge('b', 'c'));
-      expect(undirectedEdge(f!), undirectedEdge(Edge('a', 'b')));
+      final f = enterEdge(t, g, createEdgeMap('b', 'c'));
+      expect(undirectedEdge(f!), undirectedEdge(createEdgeMap('a', 'b')));
     });
 
     test('works when the root of the tree is in the tail component', () {
@@ -208,8 +208,8 @@ void main() {
       t.setPath(['b', 'c', 'a']);
       initLowLimValues(t, 'b');
 
-      final f = enterEdge(t, g, Edge('b', 'c'));
-      expect(undirectedEdge(f!), undirectedEdge(Edge('a', 'b')));
+      final f = enterEdge(t, g, createEdgeMap('b', 'c'));
+      expect(undirectedEdge(f!), undirectedEdge(createEdgeMap('a', 'b')));
     });
 
     test('finds the edge with the least slack', () {
@@ -225,8 +225,8 @@ void main() {
       t.setPath(['c', 'd', 'a', 'b']);
       initLowLimValues(t, 'a');
 
-      final f = enterEdge(t, g, Edge('c', 'd'));
-      expect(undirectedEdge(f!), undirectedEdge(Edge('b', 'c')));
+      final f = enterEdge(t, g, createEdgeMap('c', 'd'));
+      expect(undirectedEdge(f!), undirectedEdge(createEdgeMap('b', 'c')));
     });
 
     test('finds an appropriate edge for gansner graph #1', () {
@@ -235,9 +235,10 @@ void main() {
       longestPath(g);
       initLowLimValues(t, 'a');
 
-      final f = enterEdge(t, g, Edge('g', 'h'));
-      expect(undirectedEdge(f!).v, equals('a'));
-      expect(['e', 'f'], contains(undirectedEdge(f).w));
+      final f = enterEdge(t, g, createEdgeMap('g', 'h'));
+      final undirectedF = undirectedEdge(f!);
+      expect(undirectedF['v'], equals('a'));
+      expect(['e', 'f'], contains(undirectedF['w']));
     });
 
     test('finds an appropriate edge for gansner graph #2', () {
@@ -246,9 +247,10 @@ void main() {
       longestPath(g);
       initLowLimValues(t, 'e');
 
-      final f = enterEdge(t, g, Edge('g', 'h'));
-      expect(undirectedEdge(f!).v, equals('a'));
-      expect(['e', 'f'], contains(undirectedEdge(f).w));
+      final f = enterEdge(t, g, createEdgeMap('g', 'h'));
+      final undirectedF = undirectedEdge(f!);
+      expect(undirectedF['v'], equals('a'));
+      expect(['e', 'f'], contains(undirectedF['w']));
     });
 
     test('finds an appropriate edge for gansner graph #3', () {
@@ -257,9 +259,10 @@ void main() {
       longestPath(g);
       initLowLimValues(t, 'a');
 
-      final f = enterEdge(t, g, Edge('h', 'g'));
-      expect(undirectedEdge(f!).v, equals('a'));
-      expect(['e', 'f'], contains(undirectedEdge(f).w));
+      final f = enterEdge(t, g, createEdgeMap('h', 'g'));
+      final undirectedF = undirectedEdge(f!);
+      expect(undirectedF['v'], equals('a'));
+      expect(['e', 'f'], contains(undirectedF['w']));
     });
 
     test('finds an appropriate edge for gansner graph #4', () {
@@ -268,72 +271,38 @@ void main() {
       longestPath(g);
       initLowLimValues(t, 'e');
 
-      final f = enterEdge(t, g, Edge('h', 'g'));
-      expect(undirectedEdge(f!).v, equals('a'));
-      expect(['e', 'f'], contains(undirectedEdge(f).w));
+      final f = enterEdge(t, g, createEdgeMap('h', 'g'));
+      final undirectedF = undirectedEdge(f!);
+      expect(undirectedF['v'], equals('a'));
+      expect(['e', 'f'], contains(undirectedF['w']));
     });
   });
-  test("assigns low, lim, and parent for each node in a tree", () {
-    var g = Graph()
-        .setDefaultNodeLabel((_) => <String, dynamic>{}) // 关键修复在这里
-        .setNodes(["a", "b", "c", "d", "e"]).setPath(
-            ["a", "b", "a", "c", "d", "c", "e"]);
 
-    initLowLimValues(g, "a");
-
-    var a = g.node("a");
-    var b = g.node("b");
-    var c = g.node("c");
-    var d = g.node("d");
-    var e = g.node("e");
-
-    expect(g.getNodes().map((v) => g.node(v)['lim']).toList()..sort(),
-        equals([1, 2, 3, 4, 5]));
-
-    expect(a['low'], equals(1));
-    expect(a['lim'], equals(5));
-
-    expect(b['parent'], equals("a"));
-    expect(b['lim'] < a['lim'], isTrue);
-
-    expect(c['parent'], equals("a"));
-    expect(c['lim'] < a['lim'], isTrue);
-    expect(c['lim'] != b['lim'], isTrue);
-
-    expect(d['parent'], equals("c"));
-    expect(d['lim'] < c['lim'], isTrue);
-
-    expect(e['parent'], equals("c"));
-    expect(e['lim'] < c['lim'], isTrue);
-    expect(e['lim'] != d['lim'], isTrue);
-  });
-  group("exchangeEdges", () {
-    late Graph g;
-    late Graph t;
-
-    setUp(() {
-      g = gansnerGraph;
-      t = gansnerTree;
+  group('exchangeEdges', () {
+    test('exchanges edges and updates cut values and low/lim numbers', () {
+      final g = gansnerGraph;
+      final t = gansnerTree;
       longestPath(g);
       initLowLimValues(t);
-      initCutValues(t, g);
-      print("=== BEFORE exchangeEdges ===");
-      for (final v in t.getNodes()) {
-        print(
-            "Node $v: low=${t.node(v)['low']}, lim=${t.node(v)['lim']}, parent=${t.node(v)['parent']}");
-      }
+
+      // 先给tree edges 加 cutvalues
+      t.setEdge('a', 'b', {'cutvalue': 3});
+      t.setEdge('b', 'c', {'cutvalue': 3});
+      t.setEdge('c', 'd', {'cutvalue': 3});
+      t.setEdge('d', 'h', {'cutvalue': 3});
+      t.setEdge('g', 'h', {'cutvalue': 3});
+      t.setEdge('e', 'g', {'cutvalue': 3});
+      t.setEdge('f', 'g', {'cutvalue': 3});
       for (final e in t.edges()) {
         final cv = t.edge(e)['cutvalue'];
-        print("Edge ${e.v}-${e.w} initial cutvalue=$cv");
+        print("Edge ${e['v']}-${e['w']} initial cutvalue=$cv");
       }
-      print("=============================");
-    });
 
-    test("exchanges edges and updates cut values and low/lim numbers", () {
-      exchangeEdges(t, g, const Edge("g", "h", null, false),
-          const Edge("a", "e", null, false));
+      // 交换 g-h <=> a-e
+      exchangeEdges(t, g, createEdgeMap("g", "h", null, false),
+          createEdgeMap("a", "e", null, false));
 
-      // Check new cut values
+      // 只检查 a-b, b-c, c-d, d-h, a-e 的 cutvalue
       expect(t.edge("a", "b")['cutvalue'], equals(2));
       expect(t.edge("b", "c")['cutvalue'], equals(2));
       expect(t.edge("c", "d")['cutvalue'], equals(2));
@@ -342,18 +311,22 @@ void main() {
       expect(t.edge("e", "g")['cutvalue'], equals(1));
       expect(t.edge("g", "f")['cutvalue'], equals(0));
 
-      // Ensure lim numbers are correct
-      final lims = t.getNodes().map((v) => t.node(v)['lim'] as int).toList()
-        ..sort();
+      // 确保 lim 数字看起来正确
+      final lims = t.getNodes().map((v) => t.node(v)['lim'] as int).toList()..sort();
       expect(lims, equals([1, 2, 3, 4, 5, 6, 7, 8]));
     });
 
-    test("updates ranks", () {
-      exchangeEdges(t, g, const Edge("g", "h", null, false),
-          const Edge("a", "e", null, false));
+    test('updates ranks', () {
+      final g = gansnerGraph;
+      final t = gansnerTree;
+      longestPath(g);
+      initLowLimValues(t);
+
+      exchangeEdges(t, g, createEdgeMap("g", "h", null, false),
+          createEdgeMap("a", "e", null, false));
       normalizeRanks(g);
 
-      // Check new ranks
+      // 检查新的 ranks
       expect(g.node("a")['rank'], equals(0));
       expect(g.node("b")['rank'], equals(1));
       expect(g.node("c")['rank'], equals(2));

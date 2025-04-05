@@ -1,50 +1,25 @@
 enum _ArgSentinel { noVal }
 
-class Edge {
-  final String v;
-  final String w;
-  final String? name;
-  final bool isDirected;
-
-  const Edge(this.v, this.w, [this.name, this.isDirected = true]);
-
-  // 根据有向/无向图统一生成 EdgeId
-  String get id {
-    if (isDirected || v.compareTo(w) <= 0) {
-      return name != null ? '$v\u0001$w\u0001$name' : '$v\u0001$w\u0001\u0000';
-    } else {
-      return name != null ? '$w\u0001$v\u0001$name' : '$w\u0001$v\u0001\u0000';
-    }
+// 生成边ID的工具函数（替代原Edge.id）
+String createEdgeId(String v, String w, String? name, bool isDirected) {
+  if (isDirected || v.compareTo(w) <= 0) {
+    return name != null ? '$v\u0001$w\u0001$name' : '$v\u0001$w\u0001\u0000';
+  } else {
+    return name != null ? '$w\u0001$v\u0001$name' : '$w\u0001$v\u0001\u0000';
   }
+}
 
-  // ==== 新增: 转为JSON ====
-  Map<String, dynamic> toJson() {
-    final map = <String, dynamic>{'v': v, 'w': w};
-    if (name != null && name!.isNotEmpty) {
-      map['name'] = name;
-    }
-    return map;
+// 创建边的Map表示
+Map<String, dynamic> createEdgeMap(String v, String w, [String? name, bool isDirected = true]) {
+  final map = <String, dynamic>{
+    'v': v,
+    'w': w,
+    'isDirected': isDirected,
+  };
+  if (name != null && name.isNotEmpty) {
+    map['name'] = name;
   }
-
-  // ==== 新增: 覆写相等判断 ====
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is Edge &&
-          runtimeType == other.runtimeType &&
-          v == other.v &&
-          w == other.w &&
-          name == other.name &&
-          isDirected == other.isDirected;
-
-  // ==== 新增: 覆写 hashCode ====
-  @override
-  int get hashCode => Object.hash(v, w, name, isDirected);
-
-  // (推荐) 新增toString方法便于调试
-  @override
-  String toString() =>
-      'Edge(v: $v, w: $w, name: $name, isDirected: $isDirected)';
+  return map;
 }
 
 class Graph {
@@ -58,14 +33,14 @@ class Graph {
 
   /// 节点相关存储
   final Map<String, dynamic> nodes = {}; // nodeId -> label
-  final Map<String, Map<String, Edge>> _in = {}; // nodeId -> (edgeId -> Edge)
+  final Map<String, Map<String, Map<String, dynamic>>> _in = {}; // nodeId -> (edgeId -> EdgeMap)
   final Map<String, Map<String, int>> _preds =
       {}; // nodeId -> (predId -> count)
-  final Map<String, Map<String, Edge>> _out = {}; // nodeId -> (edgeId -> Edge)
+  final Map<String, Map<String, Map<String, dynamic>>> _out = {}; // nodeId -> (edgeId -> EdgeMap)
   final Map<String, Map<String, int>> _sucs = {}; // nodeId -> (succId -> count)
 
   /// 边的存储
-  final Map<String, Edge> edgeObjs = {}; // edgeId -> Edge
+  final Map<String, Map<String, dynamic>> edgeObjs = {}; // edgeId -> EdgeMap
   final Map<String, dynamic> edgeLabels = {}; // edgeId -> label
 
   /// compound graph
@@ -174,7 +149,7 @@ class Graph {
 
     for (var eId in edgesToRemove) {
       final eObj = edgeObjs[eId]!;
-      removeEdge(eObj.v, eObj.w, eObj.name);
+      removeEdge(eObj['v'], eObj['w'], eObj['name']);
     }
 
     if (isCompound) {
@@ -286,65 +261,8 @@ class Graph {
       w = tmp;
     }
     if (name == 'null') name = null;
-    return Edge(v, w, name).id;
+    return createEdgeId(v, w, name, isDirected);
   }
-
-  // Graph setEdge(
-  //     [dynamic arg0,
-  //     dynamic arg1 = _ArgSentinel.noVal,
-  //     dynamic arg2 = _ArgSentinel.noVal,
-  //     dynamic arg3 = _ArgSentinel.noVal]) {
-  //   String v;
-  //   String w;
-  //   String? name;
-  //   dynamic value = _ArgSentinel.noVal;
-
-  //   if (arg0 is Map && arg0.containsKey('v') && arg0.containsKey('w')) {
-  //     v = '${arg0['v']}';
-  //     w = '${arg0['w']}';
-  //     name = arg0.containsKey('name') ? '${arg0['name']}' : null;
-  //     if (arg1 != _ArgSentinel.noVal) value = arg1;
-  //   } else {
-  //     v = '$arg0';
-  //     w = (arg1 != _ArgSentinel.noVal) ? '$arg1' : '';
-  //     if (arg2 != _ArgSentinel.noVal) value = arg2;
-  //     if (arg3 != _ArgSentinel.noVal) name = '$arg3';
-  //   }
-
-  //   if (name == 'null') {
-  //     name = null;
-  //   }
-  //   if (name != null && !isMultigraph) {
-  //     throw Exception('Cannot set a named edge when isMultigraph = false');
-  //   }
-
-  //   final id = edgeId(v, w, name); // 统一生成id方式
-
-  //   final bool labelProvided = (value != _ArgSentinel.noVal);
-
-  //   if (edgeLabels.containsKey(id)) {
-  //     if (labelProvided) {
-  //       edgeLabels[id] = value;
-  //     }
-  //     return this;
-  //   }
-
-  //   setNode(v);
-  //   setNode(w);
-
-  //   final newLabel = labelProvided ? value : defaultEdgeLabelFn!(v, w, name);
-  //   edgeLabels[id] = newLabel;
-
-  //   final e = Edge(v, w, name);
-  //   edgeObjs[id] = e;
-  //   _preds[w]![v] = (_preds[w]![v] ?? 0) + 1;
-  //   _sucs[v]![w] = (_sucs[v]![w] ?? 0) + 1;
-  //   _in[w]![id] = e;
-  //   _out[v]![id] = e;
-  //   edgeCount++;
-
-  //   return this;
-  // }
 
   Graph setEdge(
       [dynamic arg0,
@@ -392,12 +310,12 @@ class Graph {
     final newLabel = labelProvided ? value : defaultEdgeLabelFn!(v, w, name);
     edgeLabels[id] = newLabel;
 
-    final e = Edge(v, w, name, isDirected);
-    edgeObjs[id] = e;
+    final edgeMap = createEdgeMap(v, w, name, isDirected);
+    edgeObjs[id] = edgeMap;
     _preds[w]![v] = (_preds[w]![v] ?? 0) + 1;
     _sucs[v]![w] = (_sucs[v]![w] ?? 0) + 1;
-    _in[w]![id] = e;
-    _out[v]![id] = e;
+    _in[w]![id] = edgeMap;
+    _out[v]![id] = edgeMap;
     edgeCount++;
 
     return this;
@@ -433,7 +351,7 @@ class Graph {
       w = tmp;
     }
 
-    final id = Edge(v, w, name, isDirected).id;
+    final id = createEdgeId(v, w, name, isDirected);
     return edgeLabels.containsKey(id);
   }
 
@@ -442,11 +360,7 @@ class Graph {
     String w;
     String? name;
 
-    if (arg0 is Edge) {
-      v = arg0.v;
-      w = arg0.w;
-      name = arg0.name;
-    } else if (arg0 is Map && arg0.containsKey('v') && arg0.containsKey('w')) {
+    if (arg0 is Map && arg0.containsKey('v') && arg0.containsKey('w')) {
       v = '${arg0['v']}';
       w = '${arg0['w']}';
       name = arg0.containsKey('name') ? '${arg0['name']}' : null;
@@ -460,8 +374,8 @@ class Graph {
       name = null;
     }
 
-    // 🚩【统一用当前Graph的isDirected，重建Edge来取id】
-    final id = Edge(v, w, name, isDirected).id;
+    // 🚩【统一用当前Graph的isDirected，重建id】
+    final id = createEdgeId(v, w, name, isDirected);
     return edgeLabels[id];
   }
 
@@ -470,11 +384,7 @@ class Graph {
     String w;
     String? name;
 
-    if (arg0 is Edge) {
-      v = arg0.v;
-      w = arg0.w;
-      name = arg0.name;
-    } else if (arg0 is Map && arg0.containsKey('v') && arg0.containsKey('w')) {
+    if (arg0 is Map && arg0.containsKey('v') && arg0.containsKey('w')) {
       v = '${arg0['v']}';
       w = '${arg0['w']}';
       name = arg0.containsKey('name') ? '${arg0['name']}' : null;
@@ -488,7 +398,7 @@ class Graph {
       name = null;
     }
 
-    final id = Edge(v, w, name, isDirected).id; // 统一这里
+    final id = createEdgeId(v, w, name, isDirected); // 统一这里
     final lbl = edgeLabels[id];
 
     if (lbl == null) {
@@ -527,14 +437,14 @@ class Graph {
     if (e == null) return this;
 
     // 删除主方向的边
-    _preds[e.w]![e.v] = (_preds[e.w]![e.v]! - 1);
-    if (_preds[e.w]![e.v] == 0) _preds[e.w]!.remove(e.v);
+    _preds[e['w']]![e['v']] = (_preds[e['w']]![e['v']]! - 1);
+    if (_preds[e['w']]![e['v']] == 0) _preds[e['w']]!.remove(e['v']);
 
-    _sucs[e.v]![e.w] = (_sucs[e.v]![e.w]! - 1);
-    if (_sucs[e.v]![e.w] == 0) _sucs[e.v]!.remove(e.w);
+    _sucs[e['v']]![e['w']] = (_sucs[e['v']]![e['w']]! - 1);
+    if (_sucs[e['v']]![e['w']] == 0) _sucs[e['v']]!.remove(e['w']);
 
-    _in[e.w]!.remove(id);
-    _out[e.v]!.remove(id);
+    _in[e['w']]!.remove(id);
+    _out[e['v']]!.remove(id);
 
     edgeObjs.remove(id);
     edgeLabels.remove(id);
@@ -545,20 +455,20 @@ class Graph {
       final reverseId = edgeId(w, v, name);
       final reverseEdge = edgeObjs[reverseId];
       if (reverseEdge != null) {
-        _preds[reverseEdge.w]![reverseEdge.v] =
-            (_preds[reverseEdge.w]![reverseEdge.v]! - 1);
-        if (_preds[reverseEdge.w]![reverseEdge.v] == 0) {
-          _preds[reverseEdge.w]!.remove(reverseEdge.v);
+        _preds[reverseEdge['w']]![reverseEdge['v']] =
+            (_preds[reverseEdge['w']]![reverseEdge['v']]! - 1);
+        if (_preds[reverseEdge['w']]![reverseEdge['v']] == 0) {
+          _preds[reverseEdge['w']]!.remove(reverseEdge['v']);
         }
 
-        _sucs[reverseEdge.v]![reverseEdge.w] =
-            (_sucs[reverseEdge.v]![reverseEdge.w]! - 1);
-        if (_sucs[reverseEdge.v]![reverseEdge.w] == 0) {
-          _sucs[reverseEdge.v]!.remove(reverseEdge.w);
+        _sucs[reverseEdge['v']]![reverseEdge['w']] =
+            (_sucs[reverseEdge['v']]![reverseEdge['w']]! - 1);
+        if (_sucs[reverseEdge['v']]![reverseEdge['w']] == 0) {
+          _sucs[reverseEdge['v']]!.remove(reverseEdge['w']);
         }
 
-        _in[reverseEdge.w]!.remove(reverseId);
-        _out[reverseEdge.v]!.remove(reverseId);
+        _in[reverseEdge['w']]!.remove(reverseId);
+        _out[reverseEdge['v']]!.remove(reverseId);
 
         edgeObjs.remove(reverseId);
         edgeLabels.remove(reverseId);
@@ -569,41 +479,41 @@ class Graph {
     return this;
   }
 
-  List<Edge> edges() => edgeObjs.values.toList();
+  List<Map<String, dynamic>> edges() => edgeObjs.values.toList();
 
-  List<Edge>? inEdges(dynamic nodeId, [dynamic u]) {
+  List<Map<String, dynamic>>? inEdges(dynamic nodeId, [dynamic u]) {
     final v = '$nodeId';
     final inMap = _in[v];
     if (inMap == null) return null;
 
-    var all = inMap.values.toList(); // List<Edge>
+    var all = inMap.values.toList(); // List<EdgeMap>
     if (u == null) return all;
     final uu = '$u';
-    return all.where((edge) => edge.v == uu).toList();
+    return all.where((edge) => edge['v'] == uu).toList();
   }
 
-  List<Edge>? outEdges(dynamic nodeId, [dynamic w]) {
+  List<Map<String, dynamic>>? outEdges(dynamic nodeId, [dynamic w]) {
     final v = '$nodeId';
     final outMap = _out[v];
     if (outMap == null) return null;
 
-    var all = outMap.values.toList(); // List<Edge>
+    var all = outMap.values.toList(); // List<EdgeMap>
     if (w == null) return all;
     final ww = '$w';
-    return all.where((edge) => edge.w == ww).toList();
+    return all.where((edge) => edge['w'] == ww).toList();
   }
 
-  List<Edge>? nodeEdges(dynamic nodeId, [dynamic other]) {
+  List<Map<String, dynamic>>? nodeEdges(dynamic nodeId, [dynamic other]) {
     final v = '$nodeId';
     if (!_in.containsKey(v) || !_out.containsKey(v)) return null;
 
-    final results = <Edge>[];
+    final results = <Map<String, dynamic>>[];
     results.addAll(inEdges(v) ?? []);
     results.addAll(outEdges(v) ?? []);
 
     if (other != null) {
       final oo = '$other';
-      return results.where((e) => e.v == oo || e.w == oo).toList();
+      return results.where((e) => e['v'] == oo || e['w'] == oo).toList();
     }
     return results;
   }
@@ -657,8 +567,8 @@ class Graph {
       }
     }
     for (var e in edgeObjs.values) {
-      if (newGraph.hasNode(e.v) && newGraph.hasNode(e.w)) {
-        newGraph.setEdge(e.v, e.w, edge(e.v, e.w, e.name), e.name);
+      if (newGraph.hasNode(e['v']) && newGraph.hasNode(e['w'])) {
+        newGraph.setEdge(e['v'], e['w'], edge(e['v'], e['w'], e['name']), e['name']);
       }
     }
 

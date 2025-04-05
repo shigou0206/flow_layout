@@ -63,8 +63,8 @@ List<ConflictEntry> resolveConflicts(List<BarycenterResult> entries, Graph cg) {
   }
 
   for (var e in cg.edges()) {
-    final entryV = mappedEntries[e.v];
-    final entryW = mappedEntries[e.w];
+    final entryV = mappedEntries[e['v']];
+    final entryW = mappedEntries[e['w']];
     if (entryV != null && entryW != null) {
       entryW.indegree++;
       entryV.outEdges.add(entryW);

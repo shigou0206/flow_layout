@@ -24,7 +24,7 @@ void longestPath(Graph g) {
       // 否则取各后继点 rank - minlen
       final lens = <double>[];
       for (final e in outEdges) {
-        final w = e.w; 
+        final w = e['w']; 
         final edgeData = g.edge(e) ?? {};
         final minlen = (edgeData['minlen'] as num?) ?? 1;
 
@@ -50,9 +50,9 @@ void longestPath(Graph g) {
 }
 
 /// 返回边 e 的 slack = rank(w) - rank(v) - minlen(e)
-double slack(Graph g, Edge e) {
+double slack(Graph g, Map<String, dynamic> e) {
   // 1) 解析 vRank
-  final vRaw = g.node(e.v)['rank'];
+  final vRaw = g.node(e['v'])['rank'];
   double vRank;
   if (vRaw is num) {
     vRank = vRaw.toDouble();
@@ -61,7 +61,7 @@ double slack(Graph g, Edge e) {
   }
 
   // 2) 解析 wRank
-  final wRaw = g.node(e.w)['rank'];
+  final wRaw = g.node(e['w'])['rank'];
   double wRank;
   if (wRaw is num) {
     wRank = wRaw.toDouble();

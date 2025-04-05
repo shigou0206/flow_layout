@@ -38,7 +38,7 @@ void main() {
       g.setParent('b', 'sg2');
       addSubgraphConstraints(g, cg, vs);
       expect(
-        cg.edges().map((e) => {'v': e.v, 'w': e.w}).toList(),
+        cg.edges().map((e) => {'v': e['v'], 'w': e['w']}).toList(),
         equals([
           {'v': 'sg1', 'w': 'sg2'},
         ]),
@@ -60,10 +60,10 @@ void main() {
       g.setParent('sg5', 'sg4');
       addSubgraphConstraints(g, cg, vs);
 
-      final edges = cg.edges()..sort((a, b) => a.v.compareTo(b.v));
+      final edges = cg.edges()..sort((a, b) => a['v'].compareTo(b['v']));
 
       expect(
-        edges.map((e) => {'v': e.v, 'w': e.w}).toList(),
+        edges.map((e) => {'v': e['v'], 'w': e['w']}).toList(),
         equals([
           {'v': 'sg1', 'w': 'sg4'},
           {'v': 'sg2', 'w': 'sg3'},

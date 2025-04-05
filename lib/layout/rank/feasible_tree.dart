@@ -29,7 +29,7 @@ Graph feasibleTree(Graph g) {
       break;
     }
 
-    final inT = t.hasNode(e.v);
+    final inT = t.hasNode(e['v']);
     // 如果 e.v 在 t 里, slack>0 => delta=slack; 
     // 否则 => delta=-slack
     final double d = slack(g, e);
@@ -48,7 +48,7 @@ int tightTree(Graph t, Graph g) {
     // 遍历与 v 相连的边
     final edgesOfV = g.nodeEdges(v) ?? [];
     for (final e in edgesOfV) {
-      final String w = (e.v == v) ? e.w : e.v;
+      final String w = (e['v'] == v) ? e['w'] : e['v'];
       // slack=0 && t 中不包含 w => 加入
       if (!t.hasNode(w) && slack(g, e) == 0.0) {
         // 把 w 加到 t
@@ -70,15 +70,15 @@ int tightTree(Graph t, Graph g) {
 }
 
 /// 找到一条 (一端在 t, 一端不在 t) 的边, slack最小的 => return
-Edge? findMinSlackEdge(Graph t, Graph g) {
-  Edge? bestEdge;
+Map<String, dynamic>? findMinSlackEdge(Graph t, Graph g) {
+  Map<String, dynamic>? bestEdge;
   double bestSlack = double.infinity;
 
   final allEdges = g.edges();
   for (final e in allEdges) {
     // 看是否是一端在 t, 一端不在 t
-    final bool vInT = t.hasNode(e.v);
-    final bool wInT = t.hasNode(e.w);
+    final bool vInT = t.hasNode(e['v']);
+    final bool wInT = t.hasNode(e['w']);
     if (vInT != wInT) {
       // slack
       final s = slack(g, e);

@@ -249,7 +249,7 @@ Map<String, num> horizontalCompaction(
     for (var e in inEdges) {
       final w = blockG.edge(e);
       final sepVal = (w is num) ? w : 0;
-      final prevX = xs[e.v] ?? 0;
+      final prevX = xs[e['v']] ?? 0;
       final val = prevX + sepVal;
       maxVal = max(maxVal, val);
     }
@@ -263,7 +263,7 @@ Map<String, num> horizontalCompaction(
     for (var e in outEdges) {
       final w = blockG.edge(e);
       final sepVal = (w is num) ? w : 0;
-      final nextX = xs[e.w] ?? 0;
+      final nextX = xs[e['w']] ?? 0;
       final val = nextX - sepVal;
       minVal = min(minVal, val);
     }

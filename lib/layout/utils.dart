@@ -171,11 +171,11 @@ Graph simplify(Graph g) {
   final mergedEdges = <String, Map<String, dynamic>>{};
 
   for (var edge in g.edges()) {
-    final v = edge.v;
-    final w = edge.w;
+    final v = edge['v'];
+    final w = edge['w'];
 
     final label =
-        g.edge(edge.v, edge.w, edge.name) ?? {'weight': 1, 'minlen': 1};
+        g.edge(edge) ?? {'weight': 1, 'minlen': 1};
 
     final key = '$v::$w';
     final existing = mergedEdges[key] ?? {'weight': 0, 'minlen': 1};
@@ -213,9 +213,9 @@ Graph asNonCompoundGraph(Graph g) {
 
   // copy edges, 只复制两端节点都存在的边
   for (var e in g.edges()) {
-    if (ng.hasNode(e.v) && ng.hasNode(e.w)) {
-      final lbl = g.edge(e.v, e.w, e.name);
-      ng.setEdge(e.v, e.w, lbl, e.name);
+    if (ng.hasNode(e['v']) && ng.hasNode(e['w'])) {
+      final lbl = g.edge(e);
+      ng.setEdge(e['v'], e['w'], lbl, e['name']);
     }
   }
 
@@ -228,9 +228,9 @@ Map<String, Map<String, num>> successorWeights(Graph g) {
   for (var v in g.getNodes()) {
     final sucs = <String, num>{};
     for (var edge in g.outEdges(v) ?? []) {
-      final w = edge.w;
+      final w = edge['w'];
       final weight =
-          (g.edge(edge.v, edge.w, edge.name) as Map?)?['weight'] ?? 1;
+          (g.edge(edge['v'], edge['w'], edge['name']) as Map?)?['weight'] ?? 1;
       sucs[w] = (sucs[w] ?? 0) + weight;
     }
     result[v] = sucs;
@@ -245,8 +245,8 @@ Map<String, Map<String, num>> predecessorWeights(Graph g) {
     final preds = <String, num>{};
     final inE = g.inEdges(v) ?? [];
     for (var e in inE) {
-      final u = e.v;
-      final lbl = g.edge(e.v, e.w, e.name) as Map? ?? {};
+      final u = e['v'];
+      final lbl = g.edge(e) as Map? ?? {};
       final wgt = lbl['weight'] ?? 1;
       preds[u] = (preds[u] ?? 0) + wgt;
     }

@@ -39,8 +39,8 @@ List<BarycenterResult> barycenter(Graph g, [List<String>? movable]) {
       double totalWeight = 0.0;
 
       for (var e in inEdges) {
-        final edgeLabel = g.edge(e.v, e.w, e.name);
-        final nodeU = g.node(e.v);
+        final edgeLabel = g.edge(e);
+        final nodeU = g.node(e['v']);
 
         final weight =
             ((edgeLabel is Map ? edgeLabel['weight'] : null) ?? 1).toDouble();

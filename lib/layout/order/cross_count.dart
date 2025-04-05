@@ -16,9 +16,9 @@ int twoLayerCrossCount(
   final southEntries = northLayer.expand((v) {
     final outEdges = g.outEdges(v) ?? [];
     return outEdges.map((e) {
-      final edgeLabel = g.edge(e.v, e.w, e.name);
+      final edgeLabel = g.edge(e);
       return {
-        'pos': southPos[e.w],
+        'pos': southPos[e['w']],
         'weight': ((edgeLabel as Map?)?['weight'] ?? 1).toInt(),
       };
     }).toList()

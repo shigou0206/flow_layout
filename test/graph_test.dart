@@ -4,16 +4,16 @@ import 'package:flow_layout/graph/graph.dart';
 /// 如果有需要对 edges() 进行排序比对，可以用 sortEdges 函数
 int sortEdges(a, b) {
   // 1) Compare v
-  final vCmp = a.v.compareTo(b.v);
+  final vCmp = a['v'].compareTo(b['v']);
   if (vCmp != 0) return vCmp;
 
   // 2) Compare w
-  final wCmp = a.w.compareTo(b.w);
+  final wCmp = a['w'].compareTo(b['w']);
   if (wCmp != 0) return wCmp;
 
   // 3) Compare name
-  final aName = a.name as String?; // maybe null
-  final bName = b.name as String?; // maybe null
+  final aName = a['name'] as String?; // maybe null
+  final bName = b['name'] as String?; // maybe null
 
   // 若 name 都是 null => 等价
   if (aName == null && bName == null) return 0;
@@ -26,13 +26,13 @@ int sortEdges(a, b) {
   return aName.compareTo(bName);
 }
 
-List<Map<String, dynamic>> edgesToMaps(List<Edge>? edges) {
+List<Map<String, dynamic>> edgesToMaps(List<Map<String, dynamic>>? edges) {
   if (edges == null) return [];
   return edges.map((e) {
     // 将 Edge(...) => { v:'...', w:'...', [name:'...'] }
-    final map = <String, dynamic>{'v': e.v, 'w': e.w};
-    if (e.name != null && e.name!.isNotEmpty) {
-      map['name'] = e.name;
+    final map = <String, dynamic>{'v': e['v'], 'w': e['w']};
+    if (e['name'] != null && e['name'].isNotEmpty) {
+      map['name'] = e['name'];
     }
     return map;
   }).toList();
@@ -157,7 +157,7 @@ void main() {
       g.setPath(['a', 'b', 'c']);
       final g2 = g.filterNodes((_) => false);
       expect(g2.getNodes(), <String>[]);
-      expect(g2.edges(), <Edge>[]);
+      expect(g2.edges(), <Map<String, dynamic>>[]);
     });
 
     test('only includes nodes for which the filter returns true', () {
@@ -171,7 +171,7 @@ void main() {
       final g2 = g.filterNodes((v) => v == 'a');
       final nodesSorted = g2.getNodes()..sort();
       expect(nodesSorted, ['a']);
-      expect(g2.edges(), <Edge>[]);
+      expect(g2.edges(), <Map<String, dynamic>>[]);
     });
 
     test('preserves the directed option', () {
@@ -715,7 +715,7 @@ void main() {
       // 我们在 Dart 用 sortEdges 函数
       allEdges.sort(sortEdges);
       expect(
-        allEdges.map((e) => {'v': e.v, 'w': e.w}).toList(),
+        allEdges.map((e) => {'v': e['v'], 'w': e['w']}).toList(),
         [
           {'v': 'a', 'w': 'b'},
           {'v': 'b', 'w': 'c'},
@@ -826,11 +826,11 @@ void main() {
       final allEdges = g.edges();
       // JS expect(g.edges()).eqls([{v:'1',w:'2'}]);
       expect(
-        allEdges.map((e) => e.name).where((n) => n != null).isEmpty,
+        allEdges.map((e) => e['name']).where((n) => n != null).isEmpty,
         isTrue,
       );
       expect(
-        allEdges.map((e) => {'v': e.v, 'w': e.w}).toList(),
+        allEdges.map((e) => {'v': e['v'], 'w': e['w']}).toList(),
         [
           {'v': '1', 'w': '2'}
         ],
@@ -854,7 +854,7 @@ void main() {
       expect(
         es
             .map(
-                (e) => {'v': e.v, 'w': e.w, if (e.name != null) 'name': e.name})
+                  (e) => {'v': e['v'], 'w': e['w'], if (e['name'] != null) 'name': e['name']})  
             .toList(),
         [
           {'v': '1', 'w': '2'}
@@ -880,7 +880,7 @@ void main() {
       final es = g.edges();
       // expect(es).eqls([{v:'1', w:'2', name:'3'}])
       expect(
-        es.map((e) => {'v': e.v, 'w': e.w, 'name': e.name}).toList(),
+        es.map((e) => {'v': e['v'], 'w': e['w'], 'name': e['name']}).toList(),
         [
           {'v': '1', 'w': '2', 'name': '3'}
         ],
@@ -1108,7 +1108,7 @@ void main() {
       expect(
           bIn
               .map((e) =>
-                  {'v': e.v, 'w': e.w, if (e.name != null) 'name': e.name})
+                  {'v': e['v'], 'w': e['w'], if (e['name'] != null) 'name': e['name']})
               .toList(),
           [
             {'v': 'a', 'w': 'b', 'name': 'bar'},
@@ -1130,7 +1130,7 @@ void main() {
       expect(
           bInFromA
               .map((e) =>
-                  {'v': e.v, 'w': e.w, if (e.name != null) 'name': e.name})
+                  {'v': e['v'], 'w': e['w'], if (e['name'] != null) 'name': e['name']})
               .toList(),
           [
             {'v': 'a', 'w': 'b', 'name': 'foo'},
@@ -1152,9 +1152,9 @@ void main() {
       final aOut = g.outEdges('a') ?? [];
       final aOutMaps = aOut
           .map((edge) => {
-                'v': edge.v,
-                'w': edge.w,
-                if (edge.name != null) 'name': edge.name
+                'v': edge['v'],
+                'w': edge['w'],
+                if (edge['name'] != null) 'name': edge['name']
               })
           .toList();
       expect(aOutMaps, [
@@ -1165,9 +1165,9 @@ void main() {
       final bOut = g.outEdges('b') ?? [];
       final bOutMaps = bOut
           .map((edge) => {
-                'v': edge.v,
-                'w': edge.w,
-                if (edge.name != null) 'name': edge.name
+                'v': edge['v'],
+                'w': edge['w'],
+                if (edge['name'] != null) 'name': edge['name']
               })
           .toList();
       expect(bOutMaps, [
@@ -1185,7 +1185,7 @@ void main() {
       g2.setEdge('a', 'b', null, 'foo'); // name='foo'
 
       // inEdges('a') => no edges point to 'a'
-      expect(g2.inEdges('a'), <Edge>[]);
+      expect(g2.inEdges('a'), <Map<String, dynamic>>[]);
 
       // edges from a -> b, total 3
       final bIn = g2.inEdges('b')!; // => List<Edge>
@@ -1193,8 +1193,8 @@ void main() {
 
       // 把Edge => Map
       final bInMaps = bIn.map((e) {
-        final map = <String, dynamic>{'v': e.v, 'w': e.w};
-        if (e.name != null) map['name'] = e.name;
+        final map = <String, dynamic>{'v': e['v'], 'w': e['w']};
+        if (e['name'] != null) map['name'] = e['name'];
         return map;
       }).toList();
 
@@ -1217,7 +1217,7 @@ void main() {
       expect(
           aToB
               .map((e) =>
-                  {'v': e.v, 'w': e.w, if (e.name != null) 'name': e.name})
+                  {'v': e['v'], 'w': e['w'], if (e['name'] != null) 'name': e['name']})
               .toList(),
           [
             {'v': 'a', 'w': 'b', 'name': 'foo'},
@@ -1241,9 +1241,9 @@ void main() {
       // => 转为 [ {v:'a', w:'b', [name:...] } ]
       final aEdgesMaps = aEdges
           .map((e) => {
-                'v': e.v,
-                'w': e.w,
-                if (e.name != null) 'name': e.name,
+                'v': e['v'],
+                'w': e['w'],
+                if (e['name'] != null) 'name': e['name'],
               })
           .toList();
       // 测试期望 [ {'v':'a','w':'b'} ]
@@ -1258,9 +1258,9 @@ void main() {
       // => 转为 map
       final bEdgesMaps = bEdges
           .map((e) => {
-                'v': e.v,
-                'w': e.w,
-                if (e.name != null) 'name': e.name,
+                'v': e['v'],
+                'w': e['w'],
+                if (e['name'] != null) 'name': e['name'],
               })
           .toList();
       // JS 测试期望 => [ {v:'a',w:'b'}, {v:'b',w:'c'} ]
@@ -1274,9 +1274,9 @@ void main() {
       // => 转map
       final cEdgesMaps = cEdges
           .map((e) => {
-                'v': e.v,
-                'w': e.w,
-                if (e.name != null) 'name': e.name,
+                'v': e['v'],
+                'w': e['w'],
+                if (e['name'] != null) 'name': e['name'],
               })
           .toList();
       expect(cEdgesMaps, [
@@ -1293,7 +1293,7 @@ void main() {
       expect(
           aEdges
               .map((e) =>
-                  {'v': e.v, 'w': e.w, if (e.name != null) 'name': e.name})
+                  {'v': e['v'], 'w': e['w'], if (e['name'] != null) 'name': e['name']})
               .toList(),
           [
             {'v': 'a', 'w': 'b', 'name': 'bar'},
@@ -1304,7 +1304,7 @@ void main() {
       expect(
           bEdges
               .map((e) =>
-                  {'v': e.v, 'w': e.w, if (e.name != null) 'name': e.name})
+                  {'v': e['v'], 'w': e['w'], if (e['name'] != null) 'name': e['name']})
               .toList(),
           [
             {'v': 'a', 'w': 'b', 'name': 'bar'},
@@ -1326,7 +1326,7 @@ void main() {
       expect(
           abEdges
               .map((e) =>
-                  {'v': e.v, 'w': e.w, if (e.name != null) 'name': e.name})
+                  {'v': e['v'], 'w': e['w'], if (e['name'] != null) 'name': e['name']})
               .toList(),
           [
             {'v': 'a', 'w': 'b', 'name': 'foo'},
@@ -1337,7 +1337,7 @@ void main() {
       expect(
           baEdges
               .map((e) =>
-                  {'v': e.v, 'w': e.w, if (e.name != null) 'name': e.name})
+                  {'v': e['v'], 'w': e['w'], if (e['name'] != null) 'name': e['name']})
               .toList(),
           [
             {'v': 'a', 'w': 'b', 'name': 'foo'},
