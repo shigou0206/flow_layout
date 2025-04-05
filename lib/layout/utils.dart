@@ -40,52 +40,59 @@ List<List<String>> buildLayerMatrix(Graph g) {
 }
 
 void normalizeRanks(Graph g) {
-  // 1) 收集所有节点的 rank (以 double 方式存于 rankValues 做计算)
+  print("=== normalizeRanks START ===");
+  
+  // 1) 收集所有节点的 rank (double 方式)
   final rankValues = <double>[];
   for (final v in g.getNodes()) {
     final nodeData = g.node(v);
     if (nodeData is Map && nodeData.containsKey('rank')) {
       final raw = nodeData['rank'];
-      // 如果 raw 是 int => 转 double
-      // 如果 raw 是 double => 保留
+      double? asDouble;
       if (raw is int) {
-        rankValues.add(raw.toDouble());
+        asDouble = raw.toDouble();
       } else if (raw is double) {
-        rankValues.add(raw);
+        asDouble = raw;
       }
-      // 如果不是 int/double, 跳过
+      if (asDouble != null) {
+        rankValues.add(asDouble);
+        print("  node $v, raw rank=$raw => collect $asDouble");
+      }
     }
   }
 
   if (rankValues.isEmpty) {
-    // 图里没有任何节点带 rank
+    print("No nodes have rank, skip normalize");
+    print("=== normalizeRanks END ===");
     return;
   }
 
   // 2) 找到最小 rank
   final minRank = rankValues.reduce((a, b) => a < b ? a : b);
+  print("  minRank found = $minRank");
 
-  // 3) 把所有 rank - minRank => 保证最小 rank = 0，并转回 int
+  // 3) rank - minRank => 0，并转 int
   for (final v in g.getNodes()) {
     final nodeData = g.node(v);
     if (nodeData is Map && nodeData.containsKey('rank')) {
       final raw = nodeData['rank'];
-      double oldVal;
+      double? oldVal;
       if (raw is int) {
         oldVal = raw.toDouble();
       } else if (raw is double) {
         oldVal = raw;
-      } else {
-        continue; // 不处理
       }
+      if (oldVal == null) continue;
 
       final shifted = oldVal - minRank; 
-      // 这里你可以用 floor / round / toInt 看需求，
-      // 一般 .round() 或 .toInt() 都行
-      nodeData['rank'] = shifted.round();  
-      // rank 最终存为 int
+      final newRank = shifted.round();
+      nodeData['rank'] = newRank;
+
+      print("  node $v, oldRank=$oldVal => newRank=$newRank");
     }
   }
+
+  print("=== normalizeRanks END ===");
 }
 
 void removeEmptyRanks(Graph g) {
