@@ -312,56 +312,52 @@ void addSubgraphConstraints(Graph g, Graph cg, List<String> vs) {
   }
 }
 
-dynamic applyWithChunking(List argsArray, Function fn) {
-  // 1. 空列表 - 无法 apply
+dynamic applyWithChunking(List<num> argsArray, num Function(num, num) fn) {
+  // 1) 空列表 => 无法再计算
   if (argsArray.isEmpty) {
-    return null; // 或者 throw
+    throw ArgumentError('argsArray is empty');
   }
 
-  // 2. 若只有一个元素 => 无需调用 fn，多参函数会报错，所以直接返回
+  // 2) 若只有一个元素 => 直接返回它 (无需再调用二元函数)
   if (argsArray.length == 1) {
     return argsArray[0];
   }
 
-  // 3. 若超过阈值 => 拆分
+  // 3) 若长度超过阈值 => 分块
   if (argsArray.length > CHUNKING_THRESHOLD) {
     final chunks = splitToChunks(argsArray, CHUNKING_THRESHOLD);
 
-    // 用于收集“分块”后对每个 chunk 调用的结果
-    final intermediate = <dynamic>[];
-
+    // 对每个 chunk 用 reduce(fn) 得到一个部分结果 partial，然后再合并
+    final partials = <num>[];
     for (final chunk in chunks) {
       if (chunk.isEmpty) {
-        // 跳过空块
         continue;
       } else if (chunk.length == 1) {
-        // 单元素也不直接 apply => 直接收集
-        intermediate.add(chunk[0]);
+        // 单元素也无法二元调用 => 直接拿这个值
+        partials.add(chunk[0]);
       } else {
-        // 块里有2个或以上 => 才可真正调用 fn
-        final partial = Function.apply(fn, chunk);
-        intermediate.add(partial);
+        // 至少有2个 => reduce
+        final partial = chunk.reduce(fn);
+        partials.add(partial);
       }
     }
 
-    // 再次递归调用，可能 intermediate 仍很大
-    return applyWithChunking(intermediate, fn);
+    // 再对 partials 递归调用
+    return applyWithChunking(partials, fn);
 
   } else {
-    // 4. 否则规模可直接处理
-    //    这里必须保证列表至少2个元素，函数才能正确 apply
-    return Function.apply(fn, argsArray);
+    // 4) 若长度不大 => 直接 reduce(fn)
+    //    这样不会一次性 "fn(...多参数...)"
+    return argsArray.reduce(fn);
   }
 }
 
-/// 将 [array] 按 [chunkSize] 等分；
-///  最后一个 chunk 若不足 chunkSize，则只包含剩余元素。
-List<List<T>> splitToChunks<T>(List<T> array, [int chunkSize = CHUNKING_THRESHOLD]) {
-  final chunks = <List<T>>[];
+/// 将 [array] 按 [chunkSize] 等分；最后一块可能小于 chunkSize
+List<List<num>> splitToChunks(List<num> array, [int chunkSize = CHUNKING_THRESHOLD]) {
+  final chunks = <List<num>>[];
   for (int i = 0; i < array.length; i += chunkSize) {
-    final end = i + chunkSize;
-    final chunk = array.sublist(i, end > array.length ? array.length : end);
-    chunks.add(chunk);
+    final end = min(i + chunkSize, array.length);
+    chunks.add(array.sublist(i, end));
   }
   return chunks;
 }

@@ -597,4 +597,256 @@ void main() {
       expect(xss['dr'], equals({'a': 500, 'b': 1000}));
     });
   });
+
+  group('findSmallestWidthAlignment', () {
+    late Graph g;
+
+    setUp(() {
+      // 每次新建一个图
+      g = Graph(isDirected: true);
+      // 也可以: g.setGraph({});
+    });
+
+    test('finds the alignment with the smallest width', () {
+
+      g.setNode('a', {'width': 50});
+      g.setNode('b', {'width': 50});
+
+      final xss = <String, Map<String, num>>{
+        'ul': {'a': 0, 'b': 1000},
+        'ur': {'a': -5, 'b': 1000},
+        'dl': {'a': 5, 'b': 2000},
+        'dr': {'a': 0, 'b': 200},
+      };
+
+      // 调用你的 Dart 实现
+      final result = bk.findSmallestWidthAlignment(g, xss);
+
+      // 期望: => xss['dr']  (跟 Dagre 相同)
+      expect(result, equals(xss['dr']));
+    });
+
+    test('takes node width into account', () {
+
+      g.setNode('a', {'width': 50});
+      g.setNode('b', {'width': 50});
+      g.setNode('c', {'width': 200});
+
+      final xss = <String, Map<String, num>>{
+        'ul': {'a': 0, 'b': 100, 'c': 75},
+        'ur': {'a': 0, 'b': 100, 'c': 80},
+        'dl': {'a': 0, 'b': 100, 'c': 85},
+        'dr': {'a': 0, 'b': 100, 'c': 90},
+      };
+
+      final result = bk.findSmallestWidthAlignment(g, xss);
+
+      // 期望: => xss['ul']  (跟 Dagre 一致)
+      expect(result, equals(xss['ul']));
+    });
+  });
+
+  group('balance', () {
+    test('aligns a single node to the shared median value', () {
+      final xss = <String, Map<String, num>>{
+        'ul': {'a': 0},
+        'ur': {'a': 100},
+        'dl': {'a': 100},
+        'dr': {'a': 200},
+      };
+
+      // 调用你的 Dart 版 balance
+      final result = bk.balance(xss);
+
+      // 期望 => { a: 100 }
+      expect(result, equals({'a': 100}));
+    });
+
+    test('aligns a single node to the average of different median values', () {
+      final xss = <String, Map<String, num>>{
+        'ul': {'a': 0},
+        'ur': {'a': 75},
+        'dl': {'a': 125},
+        'dr': {'a': 200},
+      };
+
+      final result = bk.balance(xss);
+
+      // => { a: 100 }
+      expect(result, equals({'a': 100}));
+    });
+
+    test('balances multiple nodes', () {
+      final xss = <String, Map<String, num>>{
+        'ul': {'a': 0,   'b': 50},
+        'ur': {'a': 75,  'b': 0},
+        'dl': {'a': 125, 'b': 60},
+        'dr': {'a': 200, 'b': 75},
+      };
+
+      final result = bk.balance(xss);
+
+      // => { a: 100, b: 55 }
+      expect(result, equals({'a': 100, 'b': 55}));
+    });
+  });
+
+    group('positionX', () {
+    late Graph g;
+
+    setUp(() {
+      // 每次测试前新建一个 Graph
+      g = Graph(isDirected: true);
+      g.setGraph({}); // 如果你想设置一些 graph-level config
+    });
+
+    test('positions a single node at origin', () {
+      // JS: g.setNode("a", { rank: 0, order: 0, width: 100 });
+      g.setNode('a', {'rank': 0, 'order': 0, 'width': 100});
+      
+      final pos = bk.positionX(g);
+      // => { a: 0 }
+      expect(pos, equals({'a': 0}));
+    });
+
+    test('positions a single node block at origin', () {
+      // JS:
+      // g.setNode("a", { rank: 0, order: 0, width: 100 });
+      // g.setNode("b", { rank: 1, order: 0, width: 100 });
+      // g.setEdge("a", "b");
+      g.setNode('a', {'rank': 0, 'order': 0, 'width': 100});
+      g.setNode('b', {'rank': 1, 'order': 0, 'width': 100});
+      g.setEdge('a', 'b');
+
+      final pos = bk.positionX(g);
+      // => { a:0, b:0 }
+      expect(pos, equals({'a': 0, 'b': 0}));
+    });
+
+    test('positions a single node block at origin even when their sizes differ', () {
+      // JS:
+      // g.setNode("a", { rank:0, order:0, width:40 });
+      // g.setNode("b", { rank:1, order:0, width:500 });
+      // g.setNode("c", { rank:2, order:0, width:20 });
+      // g.setPath(["a", "b", "c"]);
+      g.setNode('a', {'rank':0, 'order':0, 'width':40});
+      g.setNode('b', {'rank':1, 'order':0, 'width':500});
+      g.setNode('c', {'rank':2, 'order':0, 'width':20});
+      g.setPath(['a','b','c']);
+
+      final pos = bk.positionX(g);
+      // => { a:0, b:0, c:0 }
+      expect(pos, equals({'a': 0, 'b': 0, 'c': 0}));
+    });
+
+    test('centers a node if it is a predecessor of two same sized nodes', () {
+      // JS:
+      // g.graph().nodesep = 10;
+      // g.setNode("a", { rank:0, order:0, width:20 });
+      // g.setNode("b", { rank:1, order:0, width:50 });
+      // g.setNode("c", { rank:1, order:1, width:50 });
+      // g.setEdge("a","b");
+      // g.setEdge("a","c");
+      g.setGraph({'nodesep': 10});
+      g.setNode('a', {'rank':0, 'order':0, 'width':20});
+      g.setNode('b', {'rank':1, 'order':0, 'width':50});
+      g.setNode('c', {'rank':1, 'order':1, 'width':50});
+      g.setEdge('a','b');
+      g.setEdge('a','c');
+
+      final pos = bk.positionX(g);
+
+      // JS 里:
+      // var a=pos.a;
+      // expect(pos).to.eql({ a: a, b: a - (25 + 5), c: a + (25 + 5) });
+      // 这里 replicate 同样结构:
+      final aVal = pos['a']!;
+      final expected = {
+        'a': aVal,
+        'b': aVal - (25 + 5),
+        'c': aVal + (25 + 5),
+      };
+
+      expect(pos, equals(expected));
+    });
+
+    test('shifts blocks on both sides of aligned block', () {
+      // JS:
+      // g.graph().nodesep = 10;
+      // g.setNode("a",{ rank:0, order:0, width:50 });
+      // g.setNode("b",{ rank:0, order:1, width:60 });
+      // g.setNode("c",{ rank:1, order:0, width:70 });
+      // g.setNode("d",{ rank:1, order:1, width:80 });
+      // g.setEdge("b","c");
+      g.setGraph({'nodesep': 10});
+      g.setNode('a',{'rank':0, 'order':0, 'width':50});
+      g.setNode('b',{'rank':0, 'order':1, 'width':60});
+      g.setNode('c',{'rank':1, 'order':0, 'width':70});
+      g.setNode('d',{'rank':1, 'order':1, 'width':80});
+      g.setEdge('b','c');
+
+      final pos = bk.positionX(g);
+
+      // JS => var b=pos.b; var c=b; ...
+      // {
+      //   a: b - 60/2 - 10 - 50/2,
+      //   b: b,
+      //   c: c,
+      //   d: c + 70/2 + 10 + 80/2
+      // }
+      final bVal = pos['b']!;
+      final cVal = pos['c']!; // It's said "var c = b;"
+      // 但你js => cVal = bVal
+      // 这可能是 dagre's result that c ended up same as b, 
+      // or the test checks that "cVal" is "pos.b"? 
+      // We can do:
+      expect(cVal, equals(bVal),
+          reason: "Check c is same as b in this scenario? If test says so.");
+
+      final expected = {
+        'a': bVal - 60 / 2 - 10 - 50 / 2,
+        'b': bVal,
+        'c': cVal,
+        'd': cVal + 70 / 2 + 10 + 80 / 2
+      };
+
+      expect(pos, equals(expected));
+    });
+
+    test('aligns inner segments', () {
+      // JS:
+      // g.graph().nodesep=10; g.graph().edgesep=10;
+      // g.setNode("a",{ rank:0, order:0, width:50, dummy:true });
+      // g.setNode("b",{ rank:0, order:1, width:60 });
+      // g.setNode("c",{ rank:1, order:0, width:70 });
+      // g.setNode("d",{ rank:1, order:1, width:80, dummy:true });
+      // g.setEdge("b","c");
+      // g.setEdge("a","d");
+      g.setGraph({'nodesep':10, 'edgesep':10});
+      g.setNode('a',{'rank':0, 'order':0, 'width':50, 'dummy':true});
+      g.setNode('b',{'rank':0, 'order':1, 'width':60});
+      g.setNode('c',{'rank':1, 'order':0, 'width':70});
+      g.setNode('d',{'rank':1, 'order':1, 'width':80, 'dummy':true});
+      g.setEdge('b','c');
+      g.setEdge('a','d');
+
+      final pos = bk.positionX(g);
+
+      // JS => var a=pos.a; var d=a;
+      // => expect(pos).eql({ a:a, b: a+..., c: d-..., d:d });
+      final aVal = pos['a']!;
+      final dVal = aVal; // test says var d = a
+      expect(pos['d'], equals(aVal),
+          reason: "Check 'd' is same as 'a' per test scenario");
+
+      final expected = {
+        'a': aVal,
+        'b': aVal + 50/2 + 10 + 60/2,
+        'c': dVal - 70/2 - 10 - 80/2,
+        'd': dVal
+      };
+
+      expect(pos, equals(expected));
+    });
+  });
 }
