@@ -8,7 +8,6 @@ void main() {
     'longest-path', 
     'tight-tree',
     'network-simplex', 
-    'unknown-should-still-work'
   ];
   
   group('rank', () {

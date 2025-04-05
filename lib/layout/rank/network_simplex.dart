@@ -454,7 +454,7 @@ void exchangeEdges(Graph t, Graph g, Map<String, dynamic> e, Map<String, dynamic
 void updateRanks(Graph t, Graph g) {
   print("\n📏 [updateRanks] START");
   
-  // 找 root: tree 中没有 parent 的那个
+  // Find the root: node in tree without a parent
   final root = t.getNodes().firstWhere(
         (v) => !t.node(v)!.containsKey('parent'),
         orElse: () => '',
@@ -467,59 +467,109 @@ void updateRanks(Graph t, Graph g) {
   
   print("  Found root node: $root");
 
-  // 先清空所有rank
+  // Clear all ranks to prepare for recalculation
   for (var nodeId in g.getNodes()) {
-    print("  Clearing rank for node: $nodeId");
     g.node(nodeId)?['rank'] = null;
   }
   
+  // Set root rank to 0
   print("  Setting root rank to 0");
-  g.node(root)?['rank'] = 0.0;
+  g.node(root)?['rank'] = 0;
 
-  // 使用BFS方式遍历图
+  // Get nodes in preorder traversal from root
   final vs = preorder(t, root);
   print("  Processing nodes in preorder: $vs");
   
-  var visited = <String>{};
-  visited.add(root);
-  
-  // 使用队列进行BFS
-  final queue = <String>[root];
-  
-  while (queue.isNotEmpty) {
-    final u = queue.removeAt(0);
-    final uRank = g.node(u)?['rank'] as double?;
-    if (uRank == null) continue;
+  // First pass: Set preliminary ranks based on tree structure
+  for (final v in vs) {
+    if (v == root) continue; // Skip root as it's already set
     
-    // 检查所有边，设置相邻节点的rank
-    for (final e in g.nodeEdges(u) ?? []) {
-      final v = e['v'];
-      final w = e['w'];
-      final neighbor = v == u ? w : v;
-      
-      // 跳过已访问的节点
-      if (visited.contains(neighbor)) continue;
-      
-      final edge = g.edge(e);
-      if (edge == null) continue;
-      
-      final minlen = (edge['minlen'] as num?)?.toDouble() ?? 1.0;
-      
-      // 根据边的方向设置rank
-      if (v == u) { // u -> neighbor
-        g.node(neighbor)?['rank'] = uRank + minlen;
-        print("  Node $neighbor set rank to ${uRank + minlen} (from $u)");
-      } else { // neighbor -> u
-        g.node(neighbor)?['rank'] = uRank - minlen;
-        print("  Node $neighbor set rank to ${uRank - minlen} (from $u)");
+    final parentNode = t.node(v)?['parent'] as String?;
+    if (parentNode == null) continue;
+    
+    final parentRank = g.node(parentNode)?['rank'];
+    if (parentRank == null) continue;
+    
+    // Determine edge direction and get minlen
+    double minlen = 1.0;
+    if (g.hasEdge(parentNode, v)) {
+      final edgeData = g.edge(parentNode, v);
+      minlen = (edgeData is Map && edgeData.containsKey('minlen')) 
+          ? (edgeData['minlen'] as num).toDouble() 
+          : 1.0;
+      g.node(v)?['rank'] = (parentRank as num).toDouble() + minlen;
+      print("  Node $v set rank to ${(parentRank as num).toDouble() + minlen} (from parent $parentNode)");
+    } else if (g.hasEdge(v, parentNode)) {
+      final edgeData = g.edge(v, parentNode);
+      minlen = (edgeData is Map && edgeData.containsKey('minlen')) 
+          ? (edgeData['minlen'] as num).toDouble() 
+          : 1.0;
+      g.node(v)?['rank'] = (parentRank as num).toDouble() - minlen;
+      print("  Node $v set rank to ${(parentRank as num).toDouble() - minlen} (from parent $parentNode)");
+    }
+  }
+  
+  // Second pass: Ensure all nodes have ranks by propagating along non-tree edges if needed
+  bool changed = true;
+  int iteration = 0;
+  final maxIterations = g.getNodes().length * 2; // Prevent infinite loops
+  
+  while (changed && iteration < maxIterations) {
+    changed = false;
+    iteration++;
+    
+    for (final v in g.getNodes()) {
+      final vRank = g.node(v)?['rank'];
+      if (vRank == null) {
+        // Try to infer rank from neighbors
+        for (final e in g.nodeEdges(v) ?? []) {
+          final neighbor = e['v'] == v ? e['w'] : e['v'];
+          final neighborRank = g.node(neighbor)?['rank'];
+          
+          if (neighborRank != null) {
+            final minlen = g.edge(e)?['minlen'] as num? ?? 1.0;
+            if (e['v'] == v) { // outEdge: v -> neighbor
+              g.node(v)?['rank'] = (neighborRank as num).toDouble() - minlen;
+            } else { // inEdge: neighbor -> v
+              g.node(v)?['rank'] = (neighborRank as num).toDouble() + minlen;
+            }
+            print("  Node $v inferred rank to ${g.node(v)?['rank']} (from neighbor $neighbor)");
+            changed = true;
+            break;
+          }
+        }
+      }
+    }
+  }
+  
+  // Final pass: Ensure all nodes have valid ranks
+  // If any nodes still lack ranks, assign based on average of neighbors or default to 0
+  for (final v in g.getNodes()) {
+    if (g.node(v)?['rank'] == null) {
+      // Collect all neighbor ranks
+      final neighborRanks = <double>[];
+      for (final e in g.nodeEdges(v) ?? []) {
+        final neighbor = e['v'] == v ? e['w'] : e['v'];
+        final neighborRank = g.node(neighbor)?['rank'];
+        if (neighborRank != null) {
+          neighborRanks.add((neighborRank as num).toDouble());
+        }
       }
       
-      visited.add(neighbor);
-      queue.add(neighbor);
+      // Set rank as average of neighbors or 0 if no neighbors have ranks
+      if (neighborRanks.isNotEmpty) {
+        final sum = neighborRanks.reduce((a, b) => a + b);
+        g.node(v)?['rank'] = sum / neighborRanks.length;
+        print("  Node $v assigned average rank ${g.node(v)?['rank']} from neighbors");
+      } else {
+        // Default to 0 if no other information available
+        g.node(v)?['rank'] = 0;
+        print("  Node $v has no ranked neighbors, defaulting to rank 0");
+      }
     }
   }
 
-  // 规范化rank值
+  // Normalize ranks to ensure they're integers and start from 0
   normalizeRanks(g);
   
   print("  Final ranks:");
