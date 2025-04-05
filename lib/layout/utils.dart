@@ -40,19 +40,50 @@ List<List<String>> buildLayerMatrix(Graph g) {
 }
 
 void normalizeRanks(Graph g) {
-  // offset 所有 rank，使最小 rank=0
-  final ranks = g.getNodes().map((v) {
-    final rank = g.node(v)?['rank'];
-    return (rank is int) ? rank : (1 << 30);
-  }).toList();
-  if (ranks.isEmpty) return;
-
-  final minRank = ranks.reduce((a, b) => a < b ? a : b);
-
+  // 1) 收集所有节点的 rank (以 double 方式存于 rankValues 做计算)
+  final rankValues = <double>[];
   for (final v in g.getNodes()) {
-    final node = g.node(v);
-    if (node is Map && node.containsKey('rank')) {
-      node['rank'] = node['rank'] - minRank;
+    final nodeData = g.node(v);
+    if (nodeData is Map && nodeData.containsKey('rank')) {
+      final raw = nodeData['rank'];
+      // 如果 raw 是 int => 转 double
+      // 如果 raw 是 double => 保留
+      if (raw is int) {
+        rankValues.add(raw.toDouble());
+      } else if (raw is double) {
+        rankValues.add(raw);
+      }
+      // 如果不是 int/double, 跳过
+    }
+  }
+
+  if (rankValues.isEmpty) {
+    // 图里没有任何节点带 rank
+    return;
+  }
+
+  // 2) 找到最小 rank
+  final minRank = rankValues.reduce((a, b) => a < b ? a : b);
+
+  // 3) 把所有 rank - minRank => 保证最小 rank = 0，并转回 int
+  for (final v in g.getNodes()) {
+    final nodeData = g.node(v);
+    if (nodeData is Map && nodeData.containsKey('rank')) {
+      final raw = nodeData['rank'];
+      double oldVal;
+      if (raw is int) {
+        oldVal = raw.toDouble();
+      } else if (raw is double) {
+        oldVal = raw;
+      } else {
+        continue; // 不处理
+      }
+
+      final shifted = oldVal - minRank; 
+      // 这里你可以用 floor / round / toInt 看需求，
+      // 一般 .round() 或 .toInt() 都行
+      nodeData['rank'] = shifted.round();  
+      // rank 最终存为 int
     }
   }
 }
