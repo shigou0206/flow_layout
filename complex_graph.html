@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flow Layout Visualization</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+    .canvas { position: relative; border: 1px solid #ccc; margin: 20px 0; overflow: hidden; }
+    .node { position: absolute; background-color: #e0f7fa; border: 2px solid #00838f; 
+           border-radius: 5px; text-align: center; display: flex; align-items: center; 
+           justify-content: center; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+    .subgraph { position: absolute; border: 1px dashed #9c27b0; background-color: rgba(156, 39, 176, 0.05); }
+    .edge-path { stroke: #455a64; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+    .edge-label { font-size: 12px; fill: #455a64; font-weight: bold; }
+    .edge-point { fill: #f44336; r: 3; }
+  </style>
+</head>
+<body>
+  <h1>Flow Layout Visualization</h1>
+  <div class="canvas" style="width: 800.0px; height: 600.0px;">
+    <svg width="800.0" height="600.0" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#455a64" />
+        </marker>
+      </defs>
+        <path class="edge-path" d="M 40.0 40.0 L 100.0 40.0" />
+        <text class="edge-label" x="70.0" y="30.0" text-anchor="middle">A→B</text>
+        <path class="edge-path" d="M 40.0 40.0 L 160.0 40.0" />
+        <text class="edge-label" x="100.0" y="30.0" text-anchor="middle">A→C</text>
+        <path class="edge-path" d="M 100.0 40.0 L 220.0 40.0" />
+        <text class="edge-label" x="160.0" y="30.0" text-anchor="middle">B→D</text>
+        <path class="edge-path" d="M 160.0 40.0 L 220.0 40.0" />
+        <text class="edge-label" x="190.0" y="30.0" text-anchor="middle">C→D</text>
+        <path class="edge-path" d="M 220.0 40.0 L 40.0 100.0" />
+        <text class="edge-label" x="130.0" y="60.0" text-anchor="middle">D→E</text>
+        <path class="edge-path" d="M 220.0 40.0 L 100.0 100.0" />
+        <text class="edge-label" x="160.0" y="60.0" text-anchor="middle">D→F</text>
+        <path class="edge-path" d="M 40.0 100.0 L 160.0 100.0" />
+        <text class="edge-label" x="100.0" y="90.0" text-anchor="middle">E→G</text>
+        <path class="edge-path" d="M 100.0 100.0 L 160.0 100.0" />
+        <text class="edge-label" x="130.0" y="90.0" text-anchor="middle">F→G</text>
+    </svg>
+    <div class="subgraph" style="left: 180.0px; top: 80.0px; width: 80.0px; height: 40.0px;">
+      <div style="padding: 4px; background-color: rgba(156, 39, 176, 0.1);">subgraph1</div>
+    </div>
+    <div class="node" style="left: 20.0px; top: 20.0px; width: 40.0px; height: 40.0px;">
+      A节点
+    </div>
+    <div class="node" style="left: 80.0px; top: 20.0px; width: 40.0px; height: 40.0px;">
+      B节点
+    </div>
+    <div class="node" style="left: 140.0px; top: 20.0px; width: 40.0px; height: 40.0px;">
+      C节点
+    </div>
+    <div class="node" style="left: 200.0px; top: 20.0px; width: 40.0px; height: 40.0px;">
+      D节点
+    </div>
+    <div class="node" style="left: 20.0px; top: 80.0px; width: 40.0px; height: 40.0px;">
+      E节点
+    </div>
+    <div class="node" style="left: 80.0px; top: 80.0px; width: 40.0px; height: 40.0px;">
+      F节点
+    </div>
+    <div class="node" style="left: 140.0px; top: 80.0px; width: 40.0px; height: 40.0px;">
+      G节点
+    </div>
+  </div>
+  <h2>图形详细信息</h2>
+  <h3>节点信息</h3>
+  <ul>
+    <li><strong>A</strong> - 位置: (40.0, 40.0), 尺寸: 40.0 × 40.0, 层级: 0, 顺序: N/A</li>
+    <li><strong>B</strong> - 位置: (100.0, 40.0), 尺寸: 40.0 × 40.0, 层级: 3, 顺序: N/A</li>
+    <li><strong>C</strong> - 位置: (160.0, 40.0), 尺寸: 40.0 × 40.0, 层级: 3, 顺序: N/A</li>
+    <li><strong>D</strong> - 位置: (220.0, 40.0), 尺寸: 40.0 × 40.0, 层级: 6, 顺序: N/A</li>
+    <li><strong>E</strong> - 位置: (40.0, 100.0), 尺寸: 40.0 × 40.0, 层级: 8, 顺序: N/A</li>
+    <li><strong>F</strong> - 位置: (100.0, 100.0), 尺寸: 40.0 × 40.0, 层级: 8, 顺序: N/A</li>
+    <li><strong>G</strong> - 位置: (160.0, 100.0), 尺寸: 40.0 × 40.0, 层级: 10, 顺序: N/A</li>
+    <li><strong>subgraph1</strong> - 位置: (220.0, 100.0), 尺寸: 80.0 × 40.0, 层级: N/A, 顺序: N/A</li>
+  </ul>
+  <h3>边的信息</h3>
+  <ul>
+    <li><strong>A → B</strong> - 无路径点</li>
+    <li><strong>A → C</strong> - 无路径点</li>
+    <li><strong>B → D</strong> - 无路径点</li>
+    <li><strong>C → D</strong> - 无路径点</li>
+    <li><strong>D → E</strong> - 无路径点</li>
+    <li><strong>D → F</strong> - 无路径点</li>
+    <li><strong>E → G</strong> - 无路径点</li>
+    <li><strong>F → G</strong> - 无路径点</li>
+  </ul>
+</body>
+</html>

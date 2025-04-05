@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flow Layout Visualization</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+    .canvas { position: relative; border: 1px solid #ccc; margin: 20px 0; overflow: hidden; }
+    .node { position: absolute; background-color: #e0f7fa; border: 2px solid #00838f; 
+           border-radius: 5px; text-align: center; display: flex; align-items: center; 
+           justify-content: center; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+    .subgraph { position: absolute; border: 1px dashed #9c27b0; background-color: rgba(156, 39, 176, 0.05); }
+    .edge-path { stroke: #455a64; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+    .edge-label { font-size: 12px; fill: #455a64; font-weight: bold; }
+    .edge-point { fill: #f44336; r: 3; }
+  </style>
+</head>
+<body>
+  <h1>Flow Layout Visualization</h1>
+  <div class="canvas" style="width: 800.0px; height: 600.0px;">
+    <svg width="800.0" height="600.0" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#455a64" />
+        </marker>
+      </defs>
+        <path class="edge-path" d="M 40.0 40.0 L 100.0 40.0" />
+        <text class="edge-label" x="70.0" y="30.0" text-anchor="middle">1→2</text>
+        <path class="edge-path" d="M 40.0 40.0 L 160.0 40.0" />
+        <text class="edge-label" x="100.0" y="30.0" text-anchor="middle">1→3</text>
+        <path class="edge-path" d="M 100.0 40.0 L 220.0 40.0" />
+        <text class="edge-label" x="160.0" y="30.0" text-anchor="middle">2→4</text>
+        <path class="edge-path" d="M 160.0 40.0 L 220.0 40.0" />
+        <text class="edge-label" x="190.0" y="30.0" text-anchor="middle">3→4</text>
+    </svg>
+    <div class="node" style="left: 25.0px; top: 25.0px; width: 30.0px; height: 30.0px;">
+      节点1
+    </div>
+    <div class="node" style="left: 85.0px; top: 25.0px; width: 30.0px; height: 30.0px;">
+      节点2
+    </div>
+    <div class="node" style="left: 145.0px; top: 25.0px; width: 30.0px; height: 30.0px;">
+      节点3
+    </div>
+    <div class="node" style="left: 205.0px; top: 25.0px; width: 30.0px; height: 30.0px;">
+      节点4
+    </div>
+  </div>
+  <h2>图形详细信息</h2>
+  <h3>节点信息</h3>
+  <ul>
+    <li><strong>1</strong> - 位置: (40.0, 40.0), 尺寸: 30.0 × 30.0, 层级: 0, 顺序: N/A</li>
+    <li><strong>2</strong> - 位置: (100.0, 40.0), 尺寸: 30.0 × 30.0, 层级: 2, 顺序: N/A</li>
+    <li><strong>3</strong> - 位置: (160.0, 40.0), 尺寸: 30.0 × 30.0, 层级: 2, 顺序: N/A</li>
+    <li><strong>4</strong> - 位置: (220.0, 40.0), 尺寸: 30.0 × 30.0, 层级: 4, 顺序: N/A</li>
+  </ul>
+  <h3>边的信息</h3>
+  <ul>
+    <li><strong>1 → 2</strong> - 无路径点</li>
+    <li><strong>1 → 3</strong> - 无路径点</li>
+    <li><strong>2 → 4</strong> - 无路径点</li>
+    <li><strong>3 → 4</strong> - 无路径点</li>
+  </ul>
+</body>
+</html>

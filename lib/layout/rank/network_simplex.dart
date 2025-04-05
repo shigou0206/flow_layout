@@ -456,7 +456,7 @@ void updateRanks(Graph t, Graph g) {
   
   // 找 root: tree 中没有 parent 的那个
   final root = t.getNodes().firstWhere(
-        (v) => !t.node(v).containsKey('parent'),
+        (v) => !t.node(v)!.containsKey('parent'),
         orElse: () => '',
       );
 
@@ -470,62 +470,61 @@ void updateRanks(Graph t, Graph g) {
   // 先清空所有rank
   for (var nodeId in g.getNodes()) {
     print("  Clearing rank for node: $nodeId");
-    g.node(nodeId)['rank'] = null;
+    g.node(nodeId)?['rank'] = null;
   }
   
   print("  Setting root rank to 0");
-  g.node(root)['rank'] = 0;
+  g.node(root)?['rank'] = 0.0;
 
+  // 使用BFS方式遍历图
   final vs = preorder(t, root);
   print("  Processing nodes in preorder: $vs");
   
-  for (final v in vs.skip(1)) {
-    final parent = t.node(v)['parent'] as String?;
-    if (parent == null) {
-      print("  ⚠️ Node $v has no parent in tree, skipping");
-      continue;
-    }
-
-    final parentRank = g.node(parent)['rank'] as int? ?? 0;
-    print("  Processing node $v with parent $parent (rank=$parentRank)");
-
-    // 修复：检查原始图 g 中是否存在 parent->v 或 v->parent 的边
-    double minlen = 1.0;
-    Map<String, dynamic>? edgeData;
-    bool edgeFound = false;
+  var visited = <String>{};
+  visited.add(root);
+  
+  // 使用队列进行BFS
+  final queue = <String>[root];
+  
+  while (queue.isNotEmpty) {
+    final u = queue.removeAt(0);
+    final uRank = g.node(u)?['rank'] as double?;
+    if (uRank == null) continue;
     
-    // 先检查 parent->v
-    if (g.hasEdge(parent, v)) {
-      edgeData = g.edge(parent, v) as Map<String, dynamic>? ?? {};
-      minlen = (edgeData['minlen'] as num?)?.toDouble() ?? 1.0;
-      final newRank = parentRank + minlen.round();
-      print("  Edge parent->child found in graph: $parent->$v, minlen=$minlen, new rank=$newRank");
-      g.node(v)['rank'] = newRank;
-      edgeFound = true;
-    } 
-    // 再检查 v->parent
-    else if (g.hasEdge(v, parent)) {
-      edgeData = g.edge(v, parent) as Map<String, dynamic>? ?? {};
-      minlen = (edgeData['minlen'] as num?)?.toDouble() ?? 1.0;
-      final newRank = parentRank - minlen.round();
-      print("  Edge child->parent found in graph: $v->$parent, minlen=$minlen, new rank=$newRank");
-      g.node(v)['rank'] = newRank;
-      edgeFound = true;
-    }
-    
-    // 如果在图中找不到边，但在树中有父子关系，则根据树中的关系推断
-    if (!edgeFound) {
-      print("  ⚠️ No direct edge between $v and $parent in graph g, using tree relationship");
+    // 检查所有边，设置相邻节点的rank
+    for (final e in g.nodeEdges(u) ?? []) {
+      final v = e['v'];
+      final w = e['w'];
+      final neighbor = v == u ? w : v;
       
-      // 在树中，parent 是 v 的父节点，我们可以推断 parent 的 rank 应小于 v 的 rank
-      g.node(v)['rank'] = parentRank + 1;
-      print("  Assuming standard parent->child rank relationship: $parent(rank=$parentRank) -> $v(rank=${parentRank + 1})");
+      // 跳过已访问的节点
+      if (visited.contains(neighbor)) continue;
+      
+      final edge = g.edge(e);
+      if (edge == null) continue;
+      
+      final minlen = (edge['minlen'] as num?)?.toDouble() ?? 1.0;
+      
+      // 根据边的方向设置rank
+      if (v == u) { // u -> neighbor
+        g.node(neighbor)?['rank'] = uRank + minlen;
+        print("  Node $neighbor set rank to ${uRank + minlen} (from $u)");
+      } else { // neighbor -> u
+        g.node(neighbor)?['rank'] = uRank - minlen;
+        print("  Node $neighbor set rank to ${uRank - minlen} (from $u)");
+      }
+      
+      visited.add(neighbor);
+      queue.add(neighbor);
     }
   }
+
+  // 规范化rank值
+  normalizeRanks(g);
   
   print("  Final ranks:");
   for (final v in g.getNodes()) {
-    print("    $v: ${g.node(v)['rank']}");
+    print("    $v: ${g.node(v)?['rank']}");
   }
   
   print("📏 [updateRanks] END\n");

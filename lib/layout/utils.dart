@@ -98,15 +98,40 @@ void normalizeRanks(Graph g) {
 void removeEmptyRanks(Graph g) {
   // 把所有 rank 向前挤压 (但保留 nodeRankFactor的倍数rank)
   final nodeRankFactor = g.graph()?['nodeRankFactor'] ?? 0;
-  final ranks =
-      g.getNodes().map((v) => g.node(v)?['rank'] as int? ?? 0).toList();
+  
+  // 修复类型转换问题
+  final ranks = <int>[];
+  for (final v in g.getNodes()) {
+    final node = g.node(v);
+    if (node != null && node.containsKey('rank')) {
+      final rank = node['rank'];
+      if (rank is int) {
+        ranks.add(rank);
+      } else if (rank is double) {
+        ranks.add(rank.round());
+      }
+    }
+  }
+  
   if (ranks.isEmpty) return;
   final minRank = ranks.reduce((a, b) => a < b ? a : b);
 
   final layers = <int, List<String>>{};
   for (var v in g.getNodes()) {
-    final nodeRank = (g.node(v)['rank'] ?? 0) - minRank;
-    layers.putIfAbsent(nodeRank, () => []).add(v);
+    final node = g.node(v);
+    if (node != null && node.containsKey('rank')) {
+      int nodeRank;
+      final rank = node['rank'];
+      if (rank is int) {
+        nodeRank = rank - minRank;
+      } else if (rank is double) {
+        nodeRank = rank.round() - minRank;
+      } else {
+        continue; // 跳过没有有效rank值的节点
+      }
+      
+      layers.putIfAbsent(nodeRank, () => []).add(v);
+    }
   }
 
   int delta = 0;
@@ -120,7 +145,15 @@ void removeEmptyRanks(Graph g) {
       delta--;
     } else if (layer != null && delta != 0) {
       for (final v in layer) {
-        g.node(v)['rank'] += delta;
+        final node = g.node(v);
+        if (node != null && node.containsKey('rank')) {
+          final rank = node['rank'];
+          if (rank is int) {
+            node['rank'] = rank + delta;
+          } else if (rank is double) {
+            node['rank'] = rank.round() + delta;
+          }
+        }
       }
     }
   }
@@ -195,31 +228,23 @@ Graph simplify(Graph g) {
   return simplified;
 }
 
-/// 将原图扁平化 (compound => false) 但保留所有节点/边/label
+/// 将复合图转换为非复合图
 Graph asNonCompoundGraph(Graph g) {
-  final ng = Graph(
-    isDirected: g.isDirected,
-    isMultigraph: g.isMultigraph,
-    isCompound: false,
-  )..setGraph(g.graph());
-
-  // copy non-subgraph-nodes
-  for (var v in g.getNodes()) {
-    // 只有没有 children 才是"实节点"
-    if ((g.children(v) ?? []).isEmpty) {
-      ng.setNode(v, g.node(v));
+  final result = Graph(isMultigraph: g.isMultigraph);
+  
+  result.setGraph(g.graph());
+  
+  for (final v in g.getNodes()) {
+    if (g.children(v) == null || g.children(v)!.isEmpty) {
+      result.setNode(v, g.node(v));
     }
   }
-
-  // copy edges, 只复制两端节点都存在的边
-  for (var e in g.edges()) {
-    if (ng.hasNode(e['v']) && ng.hasNode(e['w'])) {
-      final lbl = g.edge(e);
-      ng.setEdge(e['v'], e['w'], lbl, e['name']);
-    }
+  
+  for (final e in g.edges()) {
+    result.setEdge(e, g.edge(e));
   }
-
-  return ng;
+  
+  return result;
 }
 
 /// 计算每个节点 => successors 的 weight 累加
@@ -398,4 +423,84 @@ List<List<num>> splitToChunks(List<num> array, [int chunkSize = CHUNKING_THRESHO
     chunks.add(array.sublist(i, end));
   }
   return chunks;
+}
+
+/// 执行函数并计时
+dynamic time(String name, Function fn) {
+  final start = DateTime.now();
+  final result = fn();
+  final elapsed = DateTime.now().difference(start).inMilliseconds;
+  print('$name: ${elapsed}ms');
+  return result;
+}
+
+/// 无时间记录的函数执行
+dynamic notime(String name, Function fn) {
+  return fn();
+}
+
+/// 从一个对象中选取特定属性
+Map<dynamic, dynamic> pick(Map<dynamic, dynamic> obj, List<String> attrs) {
+  final result = <dynamic, dynamic>{};
+  
+  for (final attr in attrs) {
+    if (obj.containsKey(attr)) {
+      result[attr] = obj[attr];
+    }
+  }
+  
+  return result;
+}
+
+/// 添加虚拟节点
+String addDummyNode(Graph g, String type, Map<dynamic, dynamic> attrs, String prefix) {
+  var v;
+  do {
+    v = '$prefix${g.nodeCount}';
+  } while (g.hasNode(v));
+
+  attrs['dummy'] = type;
+  g.setNode(v, attrs);
+  return v;
+}
+
+/// 计算两个矩形的交点（布局特定版本）
+Map<String, num> intersectRectForLayout(Map<dynamic, dynamic> node, Map<dynamic, dynamic> point) {
+  final nodeX = node['x'] as num;
+  final nodeY = node['y'] as num;
+  final nodeWidth = node['width'] as num;
+  final nodeHeight = node['height'] as num;
+  final pointX = point['x'] as num;
+  final pointY = point['y'] as num;
+  
+  // 矩形的半宽和半高
+  final halfWidth = nodeWidth / 2;
+  final halfHeight = nodeHeight / 2;
+  
+  // 计算从矩形中心到点的向量
+  final deltaX = pointX - nodeX;
+  final deltaY = pointY - nodeY;
+  
+  // 若点在矩形内部，则返回矩形中心点
+  if (deltaX.abs() <= halfWidth && deltaY.abs() <= halfHeight) {
+    return {'x': nodeX, 'y': nodeY};
+  }
+  
+  // 计算斜率，处理垂直线的情况
+  final slope = deltaX == 0 ? double.infinity : deltaY / deltaX;
+  
+  // 计算可能的交点坐标
+  num intersectX, intersectY;
+  
+  if (slope.abs() <= halfHeight / halfWidth) {
+    // 与左右边相交
+    intersectX = nodeX + (deltaX > 0 ? halfWidth : -halfWidth);
+    intersectY = nodeY + slope * (intersectX - nodeX);
+  } else {
+    // 与上下边相交
+    intersectY = nodeY + (deltaY > 0 ? halfHeight : -halfHeight);
+    intersectX = deltaX == 0 ? nodeX : nodeX + (intersectY - nodeY) / slope;
+  }
+  
+  return {'x': intersectX, 'y': intersectY};
 }
