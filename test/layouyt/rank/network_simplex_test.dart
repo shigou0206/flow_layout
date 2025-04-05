@@ -337,4 +337,210 @@ void main() {
       expect(g.node("h")['rank'], equals(4));
     });
   });
+
+  group('calcCutValue', () {
+    late Graph g;
+    late Graph t;
+
+    setUp(() {
+      g = Graph();
+      t = Graph(isDirected: false);
+    });
+
+    test('works for a 2-node tree with c -> p', () {
+      g.setPath(["c", "p"]);
+      t.setPath(["p", "c"]);
+      initLowLimValues(t, "p");
+
+      expect(calcCutValue(t, g, "c"), equals(1));
+    });
+
+    test('works for a 2-node tree with c <- p', () {
+      g.setPath(["p", "c"]);
+      t.setPath(["p", "c"]);
+      initLowLimValues(t, "p");
+
+      expect(calcCutValue(t, g, "c"), equals(1));
+    });
+
+    test('works for 3-node tree with gc -> c -> p', () {
+      g.setPath(["gc", "c", "p"]);
+      t
+        ..setEdge("gc", "c", {'cutvalue': 3})
+        ..setEdge("p", "c");
+      initLowLimValues(t, "p");
+
+      expect(calcCutValue(t, g, "c"), equals(3));
+    });
+
+    test('works for 3-node tree with gc -> c <- p', () {
+      g
+        ..setEdge("p", "c")
+        ..setEdge("gc", "c");
+      t
+        ..setEdge("gc", "c", {'cutvalue': 3})
+        ..setEdge("p", "c");
+      initLowLimValues(t, "p");
+
+      expect(calcCutValue(t, g, "c"), equals(-1));
+    });
+
+    test('works for 3-node tree with gc <- c -> p', () {
+      g
+        ..setEdge("c", "p")
+        ..setEdge("c", "gc");
+      t
+        ..setEdge("gc", "c", {'cutvalue': 3})
+        ..setEdge("p", "c");
+      initLowLimValues(t, "p");
+
+      expect(calcCutValue(t, g, "c"), equals(-1));
+    });
+
+    test('works for 3-node tree with gc <- c <- p', () {
+      g.setPath(["p", "c", "gc"]);
+      t
+        ..setEdge("gc", "c", {'cutvalue': 3})
+        ..setEdge("p", "c");
+      initLowLimValues(t, "p");
+
+      expect(calcCutValue(t, g, "c"), equals(3));
+    });
+
+    test('works for 4-node tree with gc -> c -> p -> o, with o -> c', () {
+      g
+        ..setEdge("o", "c", {'weight': 7})
+        ..setPath(["gc", "c", "p", "o"]);
+      t
+        ..setEdge("gc", "c", {'cutvalue': 3})
+        ..setPath(["c", "p", "o"]);
+      initLowLimValues(t, "p");
+
+      expect(calcCutValue(t, g, "c"), equals(-4));
+    });
+
+    test('works for 4-node tree with gc -> c -> p -> o, with o <- c', () {
+      g
+        ..setEdge("c", "o", {'weight': 7})
+        ..setPath(["gc", "c", "p", "o"]);
+      t
+        ..setEdge("gc", "c", {'cutvalue': 3})
+        ..setPath(["c", "p", "o"]);
+      initLowLimValues(t, "p");
+
+      expect(calcCutValue(t, g, "c"), equals(10));
+    });
+
+    test('works for 4-node tree with o -> gc -> c -> p, with o -> c', () {
+      g
+        ..setEdge("o", "c", {'weight': 7})
+        ..setPath(["o", "gc", "c", "p"]);
+      t
+        ..setEdge("o", "gc")
+        ..setEdge("gc", "c", {'cutvalue': 3})
+        ..setEdge("c", "p");
+      initLowLimValues(t, "p");
+
+      expect(calcCutValue(t, g, "c"), equals(-4));
+    });
+
+    test('works for 4-node tree with o -> gc -> c -> p, with o <- c', () {
+      g
+        ..setEdge("c", "o", {'weight': 7})
+        ..setPath(["o", "gc", "c", "p"]);
+      t
+        ..setEdge("o", "gc")
+        ..setEdge("gc", "c", {'cutvalue': 3})
+        ..setEdge("c", "p");
+      initLowLimValues(t, "p");
+
+      expect(calcCutValue(t, g, "c"), equals(10));
+    });
+
+    test('works for 4-node tree with gc -> c <- p -> o, with o -> c', () {
+      g
+        ..setEdge("gc", "c")
+        ..setEdge("p", "c")
+        ..setEdge("p", "o")
+        ..setEdge("o", "c", {'weight': 7});
+      t
+        ..setEdge("o", "gc")
+        ..setEdge("gc", "c", {'cutvalue': 3})
+        ..setEdge("c", "p");
+      initLowLimValues(t, "p");
+
+      expect(calcCutValue(t, g, "c"), equals(6));
+    });
+
+    test('works for 4-node tree with gc -> c <- p -> o, with o <- c', () {
+      g
+        ..setEdge("gc", "c")
+        ..setEdge("p", "c")
+        ..setEdge("p", "o")
+        ..setEdge("c", "o", {'weight': 7});
+      t
+        ..setEdge("o", "gc")
+        ..setEdge("gc", "c", {'cutvalue': 3})
+        ..setEdge("c", "p");
+      initLowLimValues(t, "p");
+
+      expect(calcCutValue(t, g, "c"), equals(-8));
+    });
+
+    test('works for 4-node tree with o -> gc -> c <- p, with o -> c', () {
+      g
+        ..setEdge("o", "c", {'weight': 7})
+        ..setPath(["o", "gc", "c"])
+        ..setEdge("p", "c");
+      t
+        ..setEdge("o", "gc")
+        ..setEdge("gc", "c", {'cutvalue': 3})
+        ..setEdge("c", "p");
+      initLowLimValues(t, "p");
+
+      expect(calcCutValue(t, g, "c"), equals(6));
+    });
+
+    test('works for 4-node tree with o -> gc -> c <- p, with o <- c', () {
+      g
+        ..setEdge("c", "o", {'weight': 7})
+        ..setPath(["o", "gc", "c"])
+        ..setEdge("p", "c");
+      t
+        ..setEdge("o", "gc")
+        ..setEdge("gc", "c", {'cutvalue': 3})
+        ..setEdge("c", "p");
+      initLowLimValues(t, "p");
+
+      expect(calcCutValue(t, g, "c"), equals(-8));
+    });
+  });
+
+  group('initCutValues', () {
+    test('works for gansnerGraph', () {
+      initLowLimValues(gansnerTree);
+      initCutValues(gansnerTree, gansnerGraph);
+      expect(gansnerTree.edge("a", "b")['cutvalue'], equals(3));
+      expect(gansnerTree.edge("b", "c")['cutvalue'], equals(3));
+      expect(gansnerTree.edge("c", "d")['cutvalue'], equals(3));
+      expect(gansnerTree.edge("d", "h")['cutvalue'], equals(3));
+      expect(gansnerTree.edge("g", "h")['cutvalue'], equals(-1));
+      expect(gansnerTree.edge("e", "g")['cutvalue'], equals(0));
+      expect(gansnerTree.edge("f", "g")['cutvalue'], equals(0));
+    });
+
+    test('works for updated gansnerGraph', () {
+      gansnerTree.removeEdge("g", "h");
+      gansnerTree.setEdge("a", "e");
+      initLowLimValues(gansnerTree);
+      initCutValues(gansnerTree, gansnerGraph);
+      expect(gansnerTree.edge("a", "b")['cutvalue'], equals(2));
+      expect(gansnerTree.edge("b", "c")['cutvalue'], equals(2));
+      expect(gansnerTree.edge("c", "d")['cutvalue'], equals(2));
+      expect(gansnerTree.edge("d", "h")['cutvalue'], equals(2));
+      expect(gansnerTree.edge("a", "e")['cutvalue'], equals(1));
+      expect(gansnerTree.edge("e", "g")['cutvalue'], equals(1));
+      expect(gansnerTree.edge("f", "g")['cutvalue'], equals(0));
+    });
+  });
 }
