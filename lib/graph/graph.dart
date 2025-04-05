@@ -4,14 +4,20 @@ class Edge {
   final String v;
   final String w;
   final String? name;
+  final bool isDirected;
 
-  const Edge(this.v, this.w, [this.name]);
+  const Edge(this.v, this.w, [this.name, this.isDirected = true]);
 
-  // 构建 edgeId
-  String get id =>
-      name != null ? '$v\u0001$w\u0001$name' : '$v\u0001$w\u0001\u0000';
+  // 根据有向/无向图统一生成 EdgeId
+  String get id {
+    if (isDirected || v.compareTo(w) <= 0) {
+      return name != null ? '$v\u0001$w\u0001$name' : '$v\u0001$w\u0001\u0000';
+    } else {
+      return name != null ? '$w\u0001$v\u0001$name' : '$w\u0001$v\u0001\u0000';
+    }
+  }
 
-  // ==== 新增 ====
+  // ==== 新增: 转为JSON ====
   Map<String, dynamic> toJson() {
     final map = <String, dynamic>{'v': v, 'w': w};
     if (name != null && name!.isNotEmpty) {
@@ -19,6 +25,26 @@ class Edge {
     }
     return map;
   }
+
+  // ==== 新增: 覆写相等判断 ====
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Edge &&
+          runtimeType == other.runtimeType &&
+          v == other.v &&
+          w == other.w &&
+          name == other.name &&
+          isDirected == other.isDirected;
+
+  // ==== 新增: 覆写 hashCode ====
+  @override
+  int get hashCode => Object.hash(v, w, name, isDirected);
+
+  // (推荐) 新增toString方法便于调试
+  @override
+  String toString() =>
+      'Edge(v: $v, w: $w, name: $name, isDirected: $isDirected)';
 }
 
 class Graph {
@@ -253,74 +279,120 @@ class Graph {
   }
 
   /* ================= Edge manipulation ================= */
+  String edgeId(String v, String w, [String? name]) {
+    if (!isDirected && v.compareTo(w) > 0) {
+      final tmp = v;
+      v = w;
+      w = tmp;
+    }
+    if (name == 'null') name = null;
+    return Edge(v, w, name).id;
+  }
+
+  // Graph setEdge(
+  //     [dynamic arg0,
+  //     dynamic arg1 = _ArgSentinel.noVal,
+  //     dynamic arg2 = _ArgSentinel.noVal,
+  //     dynamic arg3 = _ArgSentinel.noVal]) {
+  //   String v;
+  //   String w;
+  //   String? name;
+  //   dynamic value = _ArgSentinel.noVal;
+
+  //   if (arg0 is Map && arg0.containsKey('v') && arg0.containsKey('w')) {
+  //     v = '${arg0['v']}';
+  //     w = '${arg0['w']}';
+  //     name = arg0.containsKey('name') ? '${arg0['name']}' : null;
+  //     if (arg1 != _ArgSentinel.noVal) value = arg1;
+  //   } else {
+  //     v = '$arg0';
+  //     w = (arg1 != _ArgSentinel.noVal) ? '$arg1' : '';
+  //     if (arg2 != _ArgSentinel.noVal) value = arg2;
+  //     if (arg3 != _ArgSentinel.noVal) name = '$arg3';
+  //   }
+
+  //   if (name == 'null') {
+  //     name = null;
+  //   }
+  //   if (name != null && !isMultigraph) {
+  //     throw Exception('Cannot set a named edge when isMultigraph = false');
+  //   }
+
+  //   final id = edgeId(v, w, name); // 统一生成id方式
+
+  //   final bool labelProvided = (value != _ArgSentinel.noVal);
+
+  //   if (edgeLabels.containsKey(id)) {
+  //     if (labelProvided) {
+  //       edgeLabels[id] = value;
+  //     }
+  //     return this;
+  //   }
+
+  //   setNode(v);
+  //   setNode(w);
+
+  //   final newLabel = labelProvided ? value : defaultEdgeLabelFn!(v, w, name);
+  //   edgeLabels[id] = newLabel;
+
+  //   final e = Edge(v, w, name);
+  //   edgeObjs[id] = e;
+  //   _preds[w]![v] = (_preds[w]![v] ?? 0) + 1;
+  //   _sucs[v]![w] = (_sucs[v]![w] ?? 0) + 1;
+  //   _in[w]![id] = e;
+  //   _out[v]![id] = e;
+  //   edgeCount++;
+
+  //   return this;
+  // }
+
   Graph setEdge(
       [dynamic arg0,
       dynamic arg1 = _ArgSentinel.noVal,
       dynamic arg2 = _ArgSentinel.noVal,
       dynamic arg3 = _ArgSentinel.noVal]) {
-    // 1) parse v, w, name, value
     String v;
     String w;
     String? name;
     dynamic value = _ArgSentinel.noVal;
 
     if (arg0 is Map && arg0.containsKey('v') && arg0.containsKey('w')) {
-      // setEdge({ v:'a', w:'b', name:'foo' }, [value])
       v = '${arg0['v']}';
       w = '${arg0['w']}';
       name = arg0.containsKey('name') ? '${arg0['name']}' : null;
-      if (arg1 != _ArgSentinel.noVal) {
-        value = arg1;
-      }
+      if (arg1 != _ArgSentinel.noVal) value = arg1;
     } else {
-      // setEdge(v, w, [value], [name])
       v = '$arg0';
       w = (arg1 != _ArgSentinel.noVal) ? '$arg1' : '';
       if (arg2 != _ArgSentinel.noVal) value = arg2;
       if (arg3 != _ArgSentinel.noVal) name = '$arg3';
     }
 
-    // 若 name == 'null' => 强制为 null
     if (name == 'null') {
       name = null;
     }
-
-    // 如果是无向图，且 v > w => reorder
-    if (!isDirected && v.compareTo(w) > 0) {
-      final tmp = v;
-      v = w;
-      w = tmp;
-    }
-
-    // 如果 name != null 但不是多重图 => 抛异常
     if (name != null && !isMultigraph) {
       throw Exception('Cannot set a named edge when isMultigraph = false');
     }
 
-    // 构建 Edge / edgeId
-    final e = Edge(v, w, name);
-    final id = e.id;
+    final id = edgeId(v, w, name);
 
-    // 是否显式提供 label
     final bool labelProvided = (value != _ArgSentinel.noVal);
 
-    // =============== 检查是否已有这条边 ===============
     if (edgeLabels.containsKey(id)) {
       if (labelProvided) {
-        edgeLabels[id] = value; // 覆盖标签
+        edgeLabels[id] = value;
       }
       return this;
     }
 
-    // =============== 边不存在 => 创建新边 ===============
-    // 确保节点
     setNode(v);
     setNode(w);
 
-    // 若显式提供 label => 用 value；否则 => defaultEdgeLabelFn
     final newLabel = labelProvided ? value : defaultEdgeLabelFn!(v, w, name);
     edgeLabels[id] = newLabel;
 
+    final e = Edge(v, w, name, isDirected);
     edgeObjs[id] = e;
     _preds[w]![v] = (_preds[w]![v] ?? 0) + 1;
     _sucs[v]![w] = (_sucs[v]![w] ?? 0) + 1;
@@ -332,6 +404,14 @@ class Graph {
   }
 
   Graph setPath(List<dynamic> vs, [dynamic value]) {
+    // 确保节点都存在
+    for (final node in vs) {
+      if (!hasNode(node)) {
+        setNode(node, {}); // ← 没有 nodeData 不要紧，这里用空Map初始化即可
+      }
+    }
+
+    // 设置路径上的边
     for (int i = 0; i < vs.length - 1; i++) {
       setEdge(vs[i], vs[i + 1], value);
     }
@@ -342,52 +422,46 @@ class Graph {
     var v = '$src';
     var w = '$dst';
     var name = nm != null ? '$nm' : null;
+    if (name == 'null') {
+      name = null;
+    }
+
+    // 🚩 修正逻辑：无向图下必须统一排序 (v < w)
     if (!isDirected && v.compareTo(w) > 0) {
       final tmp = v;
       v = w;
       w = tmp;
     }
-    if (name == 'null') {
-      name = null;
-    }
 
-    final id = Edge(v, w, name).id;
+    final id = Edge(v, w, name, isDirected).id;
     return edgeLabels.containsKey(id);
   }
 
   dynamic edge([dynamic arg0, dynamic arg1, dynamic arg2]) {
-
-    if (arg0 is Edge) {
-    // 直接从对象里取 v, w, name
-    final eObj = arg0;
-    final id = eObj.id;  // Edge 里已有 id getter
-    return edgeLabels[id];
-  }
     String v;
     String w;
     String? name;
-    if (arg0 is Map && arg0.containsKey('v') && arg0.containsKey('w')) {
+
+    if (arg0 is Edge) {
+      v = arg0.v;
+      w = arg0.w;
+      name = arg0.name;
+    } else if (arg0 is Map && arg0.containsKey('v') && arg0.containsKey('w')) {
       v = '${arg0['v']}';
       w = '${arg0['w']}';
-      if (arg0.containsKey('name')) {
-        name = '${arg0['name']}';
-      }
+      name = arg0.containsKey('name') ? '${arg0['name']}' : null;
     } else {
       v = '$arg0';
       w = arg1 != null ? '$arg1' : '';
-      if (arg2 != null) name = '$arg2';
+      name = arg2 != null ? '$arg2' : null;
     }
 
-    if (!isDirected && v.compareTo(w) > 0) {
-      final tmp = v;
-      v = w;
-      w = tmp;
-    }
     if (name == 'null') {
       name = null;
     }
 
-    final id = Edge(v, w, name).id;
+    // 🚩【统一用当前Graph的isDirected，重建Edge来取id】
+    final id = Edge(v, w, name, isDirected).id;
     return edgeLabels[id];
   }
 
@@ -396,42 +470,36 @@ class Graph {
     String w;
     String? name;
 
-    if (arg0 is Map && arg0.containsKey('v') && arg0.containsKey('w')) {
+    if (arg0 is Edge) {
+      v = arg0.v;
+      w = arg0.w;
+      name = arg0.name;
+    } else if (arg0 is Map && arg0.containsKey('v') && arg0.containsKey('w')) {
       v = '${arg0['v']}';
       w = '${arg0['w']}';
-      if (arg0.containsKey('name')) {
-        name = '${arg0['name']}';
-      }
+      name = arg0.containsKey('name') ? '${arg0['name']}' : null;
     } else {
       v = '$arg0';
       w = arg1 != null ? '$arg1' : '';
-      if (arg2 != null) {
-        name = '$arg2';
-      }
+      name = arg2 != null ? '$arg2' : null;
     }
 
-    if (!isDirected && v.compareTo(w) > 0) {
-      final tmp = v;
-      v = w;
-      w = tmp;
-    }
     if (name == 'null') {
       name = null;
     }
 
-    final id = Edge(v, w, name).id;
+    final id = Edge(v, w, name, isDirected).id; // 统一这里
     final lbl = edgeLabels[id];
+
     if (lbl == null) {
       return {'label': null};
     }
-    if (lbl is Map) {
-      return lbl;
-    }
-    return {'label': lbl};
+
+    return lbl is Map ? lbl : {'label': lbl};
   }
 
   Graph removeEdge([dynamic arg0, dynamic arg1, dynamic arg2]) {
-    // 解析
+    // 解析参数
     String v;
     String w;
     String? name;
@@ -450,32 +518,20 @@ class Graph {
       }
     }
 
-    if (!isDirected && v.compareTo(w) > 0) {
-      final tmp = v;
-      v = w;
-      w = tmp;
-    }
     if (name == 'null') {
       name = null;
     }
 
-    final id = Edge(v, w, name).id;
+    final id = edgeId(v, w, name);
     final e = edgeObjs[id];
     if (e == null) return this;
 
-    final c1 = _preds[e.w]![e.v]! - 1;
-    if (c1 == 0) {
-      _preds[e.w]!.remove(e.v);
-    } else {
-      _preds[e.w]![e.v] = c1;
-    }
+    // 删除主方向的边
+    _preds[e.w]![e.v] = (_preds[e.w]![e.v]! - 1);
+    if (_preds[e.w]![e.v] == 0) _preds[e.w]!.remove(e.v);
 
-    final c2 = _sucs[e.v]![e.w]! - 1;
-    if (c2 == 0) {
-      _sucs[e.v]!.remove(e.w);
-    } else {
-      _sucs[e.v]![e.w] = c2;
-    }
+    _sucs[e.v]![e.w] = (_sucs[e.v]![e.w]! - 1);
+    if (_sucs[e.v]![e.w] == 0) _sucs[e.v]!.remove(e.w);
 
     _in[e.w]!.remove(id);
     _out[e.v]!.remove(id);
@@ -483,6 +539,32 @@ class Graph {
     edgeObjs.remove(id);
     edgeLabels.remove(id);
     edgeCount--;
+
+    // 🚩 新增：无向图时，同时删除反向边
+    if (!isDirected) {
+      final reverseId = edgeId(w, v, name);
+      final reverseEdge = edgeObjs[reverseId];
+      if (reverseEdge != null) {
+        _preds[reverseEdge.w]![reverseEdge.v] =
+            (_preds[reverseEdge.w]![reverseEdge.v]! - 1);
+        if (_preds[reverseEdge.w]![reverseEdge.v] == 0) {
+          _preds[reverseEdge.w]!.remove(reverseEdge.v);
+        }
+
+        _sucs[reverseEdge.v]![reverseEdge.w] =
+            (_sucs[reverseEdge.v]![reverseEdge.w]! - 1);
+        if (_sucs[reverseEdge.v]![reverseEdge.w] == 0) {
+          _sucs[reverseEdge.v]!.remove(reverseEdge.w);
+        }
+
+        _in[reverseEdge.w]!.remove(reverseId);
+        _out[reverseEdge.v]!.remove(reverseId);
+
+        edgeObjs.remove(reverseId);
+        edgeLabels.remove(reverseId);
+        edgeCount--;
+      }
+    }
 
     return this;
   }

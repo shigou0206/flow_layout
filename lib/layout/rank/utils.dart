@@ -79,6 +79,6 @@ double slack(Graph g, Edge e) {
     minlen = 1.0; // default
   }
 
-  // 4) slack
+  // 4) 正确的 slack 计算方式（关键修改在这里）
   return wRank - vRank - minlen;
 }

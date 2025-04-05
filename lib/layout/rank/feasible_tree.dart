@@ -4,7 +4,9 @@ import 'package:flow_layout/layout/rank/utils.dart';
 Graph feasibleTree(Graph g) {
   // 1) 新建一个无向图 t
   //    假设 Graph 构造可以指定 directed=false
-  final t = Graph(isDirected: false);
+  final t = Graph(isDirected: false)
+    ..setDefaultNodeLabel((_) => {})
+    ..setDefaultEdgeLabel((_) => {});
 
   // 2) 选择任意 start 节点
   final nodes = g.getNodes();
