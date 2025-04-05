@@ -6,6 +6,7 @@ typedef Conflicts = Map<String, Map<String, bool>>;
 
 /* ===========================================================
  * 1) findType1Conflicts
+ *  - 保持原样
  * ===========================================================
  */
 Conflicts findType1Conflicts(Graph g, List<List<String>> layering) {
@@ -84,13 +85,14 @@ bool hasConflict(Conflicts conflicts, String v, String w) {
 
 /* ===========================================================
  * 2) findType2Conflicts
+ *  - 保持原样
  * ===========================================================
  */
 Conflicts findType2Conflicts(Graph g, List<List<String>> layering) {
   final conflicts = <String, Map<String, bool>>{};
 
-  void scan(List<String> south, int southPos, int southEnd, int prevNorthBorder,
-      int nextNorthBorder) {
+  void scan(List<String> south, int southPos, int southEnd,
+      int prevNorthBorder, int nextNorthBorder) {
     for (int i = southPos; i < southEnd; i++) {
       final v = south[i];
       final vNode = g.node(v);
@@ -114,9 +116,7 @@ Conflicts findType2Conflicts(Graph g, List<List<String>> layering) {
     int nextNorthPos = 0;
     int southPos = 0;
 
-    for (int southLookahead = 0;
-        southLookahead < south.length;
-        southLookahead++) {
+    for (int southLookahead = 0; southLookahead < south.length; southLookahead++) {
       final v = south[southLookahead];
       final vNode = g.node(v);
       if (vNode != null && vNode['dummy'] == 'border') {
@@ -143,6 +143,7 @@ Conflicts findType2Conflicts(Graph g, List<List<String>> layering) {
 
 /* ===========================================================
  * 3) verticalAlignment
+ *  - 保持原样
  * ===========================================================
  */
 class AlignmentResult {
@@ -151,8 +152,11 @@ class AlignmentResult {
   AlignmentResult(this.root, this.align);
 }
 
-AlignmentResult verticalAlignment(Graph g, List<List<String>> layering,
-    Conflicts conflicts, List<String> Function(String)? neighborFn) {
+AlignmentResult verticalAlignment(
+    Graph g,
+    List<List<String>> layering,
+    Conflicts conflicts,
+    List<String> Function(String)? neighborFn) {
   final Map<String, String> root = {};
   final Map<String, String> align = {};
   final Map<String, int> pos = {};
@@ -193,37 +197,52 @@ AlignmentResult verticalAlignment(Graph g, List<List<String>> layering,
 
 /* ===========================================================
  * 4) horizontalCompaction
+ *    核心：用后序 DFS (dagre 方法) 替换原 iterate
  * ===========================================================
  */
-Map<String, num> horizontalCompaction(Graph g, List<List<String>> layering,
-    Map<String, String> root, Map<String, String> align, bool reverseSep) {
-  print("=== horizontalCompaction ===");
-  print("reverseSep = $reverseSep");
-  final Map<String, num> xs = {};
+Map<String, num> horizontalCompaction(
+  Graph g,
+  List<List<String>> layering,
+  Map<String, String> root,
+  Map<String, String> align,
+  bool reverseSep
+) {
+
+  final xs = <String, num>{};
   final blockG = _buildBlockGraph(g, layering, root, reverseSep);
   final borderType = reverseSep ? 'borderLeft' : 'borderRight';
 
-  // 初始化 0
+  // 初始化
   for (var v in blockG.getNodes()) {
     xs[v] = 0;
   }
 
-  void iterate(void Function(String) setXsFunc,
-      List<String> Function(String) nextNodesFunc) {
-    final stack = List.of(blockG.getNodes());
+  /// 和 dagre 一样的后序 DFS：第一次见到节点只做标记，第二次见到再执行 setXsFunc
+  void iterateDagre(
+    void Function(String) setXsFunc,
+    List<String> Function(String) nextNodesFunc,
+  ) {
     final visited = <String>{};
+    final stack = List.of(blockG.getNodes());
+
     while (stack.isNotEmpty) {
       final elem = stack.removeLast();
+
       if (visited.contains(elem)) {
+        // 第二次 pop 到 => 真正执行
         setXsFunc(elem);
       } else {
         visited.add(elem);
+        // 再次 push 自己，保证将来还能“第二次 pop”到
         stack.add(elem);
+
+        // 把它的“前驱”或“后继”都推到栈中
         stack.addAll(nextNodesFunc(elem));
       }
     }
   }
 
+  // pass1
   void pass1(String elem) {
     final inEdges = blockG.inEdges(elem) ?? [];
     num maxVal = 0;
@@ -233,12 +252,11 @@ Map<String, num> horizontalCompaction(Graph g, List<List<String>> layering,
       final prevX = xs[e.v] ?? 0;
       final val = prevX + sepVal;
       maxVal = max(maxVal, val);
-      print("pass1: e=${e.v}->${e.w}, sepVal=$sepVal, prevX=$prevX => $val");
     }
     xs[elem] = maxVal;
-    print("pass1: set xs[$elem] = $maxVal");
   }
 
+  // pass2
   void pass2(String elem) {
     final outEdges = blockG.outEdges(elem) ?? [];
     num minVal = double.infinity;
@@ -247,82 +265,72 @@ Map<String, num> horizontalCompaction(Graph g, List<List<String>> layering,
       final sepVal = (w is num) ? w : 0;
       final nextX = xs[e.w] ?? 0;
       final val = nextX - sepVal;
-      print("pass2: e=${e.v}->${e.w}, sepVal=$sepVal, nextX=$nextX => $val");
       minVal = min(minVal, val);
     }
     final nodeData = g.node(elem) ?? {};
     if (minVal != double.infinity && nodeData['borderType'] != borderType) {
       final oldVal = xs[elem] ?? 0;
       xs[elem] = max(oldVal, minVal);
-      print("pass2: set xs[$elem] = ${xs[elem]} (was=$oldVal, minVal=$minVal)");
-    } else {
-      print(
-          "pass2: no update for $elem (minVal=$minVal, borderType=${nodeData['borderType']})");
     }
   }
 
-  iterate(pass1, (v) => blockG.predecessors(v) ?? []);
-  print("after pass1, xs=$xs");
+  // pass1: 用 blockG.predecessors => 后序 DFS
+  iterateDagre(pass1, (v) => blockG.predecessors(v) ?? []);
 
-  iterate(pass2, (v) => blockG.successors(v) ?? []);
-  print("after pass2, xs=$xs");
+  // pass2: 用 blockG.successors => 后序 DFS
+  iterateDagre(pass2, (v) => blockG.successors(v) ?? []);
 
-  // assign back
+  // assign回 align
   for (var v in align.keys) {
     final r = root[v];
     final assigned = xs[r] ?? 0;
     xs[v] = assigned;
-    print("align: xs[$v] = xs[$r] = $assigned");
   }
 
-  print("=== end horizontalCompaction => xs=$xs ===");
   return xs;
 }
 
 /* ===========================================================
  * 5) _buildBlockGraph
+ *  - 保持原样
  * ===========================================================
  */
-Graph _buildBlockGraph(Graph g, List<List<String>> layering,
-    Map<String, String> root, bool reverseSep) {
-  print("_buildBlockGraph: reverseSep=$reverseSep");
+Graph _buildBlockGraph(
+  Graph g,
+  List<List<String>> layering,
+  Map<String, String> root,
+  bool reverseSep
+) {
 
   final blockGraph = Graph()
     ..setGraph(g.graph())
     ..isMultigraph = false
     ..isCompound = false;
 
-  print("blockGraph.isDirected = ${blockGraph.isDirected}");
 
   final graphLabel = g.graph();
   final nodesep = (graphLabel['nodesep'] as num?) ?? 0;
   final edgesep = (graphLabel['edgesep'] as num?) ?? 0;
   final sepFn = _sep(nodesep, edgesep, reverseSep);
 
-  print("_buildBlockGraph: nodeSep=$nodesep, edgeSep=$edgesep");
 
   for (int layerIdx = 0; layerIdx < layering.length; layerIdx++) {
     final layer = layering[layerIdx];
-    print("layer[$layerIdx]: $layer");
     String? u;
     for (final v in layer) {
       final vRoot = root[v] ?? v;
       if (!blockGraph.hasNode(vRoot)) {
         blockGraph.setNode(vRoot);
-        print("setNode($vRoot)");
       }
 
       if (u != null) {
         final uRoot = root[u] ?? u;
         if (!blockGraph.hasNode(uRoot)) {
           blockGraph.setNode(uRoot);
-          print("setNode($uRoot)");
         }
         final prevVal = blockGraph.edge(uRoot, vRoot) as num? ?? 0;
         final sepVal = sepFn(g, v, u);
         final newVal = max(prevVal, sepVal);
-        print(
-            "u=$u, v=$v => setEdge($uRoot->$vRoot, max($prevVal, $sepVal)=$newVal)");
         blockGraph.setEdge(uRoot, vRoot, newVal);
       }
       u = v;
@@ -334,6 +342,7 @@ Graph _buildBlockGraph(Graph g, List<List<String>> layering,
 
 /* ===========================================================
  * 6) _sep
+ *  - 保持原样
  * ===========================================================
  */
 num Function(Graph, String, String) _sep(
@@ -345,10 +354,6 @@ num Function(Graph, String, String) _sep(
     final vWidth = (vData['width'] is num) ? vData['width'] as num : 0;
     final wWidth = (wData['width'] is num) ? wData['width'] as num : 0;
 
-    print(
-        "_sep: v=$v (width=$vWidth,dummy=${vData['dummy']},labelpos=${vData['labelpos']}),"
-        " w=$w (width=$wWidth,dummy=${wData['dummy']},labelpos=${wData['labelpos']}),"
-        " nodeSep=$nodeSep, edgeSep=$edgeSep, reverse=$reverseSep");
 
     num sum = 0;
     num delta = 0;
@@ -399,13 +404,13 @@ num Function(Graph, String, String) _sep(
       }
     }
 
-    print("_sep => result=$sum");
     return sum;
   };
 }
 
 /* ===========================================================
  * 7) findSmallestWidthAlignment
+ *  - 保持原样
  * ===========================================================
  */
 Map<String, num> findSmallestWidthAlignment(
@@ -432,6 +437,7 @@ Map<String, num> findSmallestWidthAlignment(
 
 /* ===========================================================
  * 8) alignCoordinates
+ *  - 保持原样
  * ===========================================================
  */
 void alignCoordinates(
@@ -464,6 +470,7 @@ void alignCoordinates(
 
 /* ===========================================================
  * 9) balance
+ *  - 保持原样
  * ===========================================================
  */
 Map<String, num> balance(Map<String, Map<String, num>> xss, [String? align]) {
@@ -476,6 +483,7 @@ Map<String, num> balance(Map<String, Map<String, num>> xss, [String? align]) {
   } else {
     return mapValues(ul, (val, v) {
       final coords = xss.values.map((xs) => xs[v]!).toList()..sort();
+      // 取 coords[1]、coords[2] 的均值
       return (coords[1] + coords[2]) / 2;
     });
   }
@@ -483,17 +491,15 @@ Map<String, num> balance(Map<String, Map<String, num>> xss, [String? align]) {
 
 /* ===========================================================
  * 10) positionX
+ *  - 保持原样
  * ===========================================================
  */
 Map<String, num> positionX(Graph g) {
-  print("=== positionX START ===");
   final layering = buildLayerMatrix(g);
-  print("layering=$layering");
 
   final c1 = findType1Conflicts(g, layering);
   final c2 = findType2Conflicts(g, layering);
   final conflicts = {...c1, ...c2};
-  print("type1Conflicts=$c1, type2Conflicts=$c2");
 
   final Map<String, Map<String, num>> xss = {};
 
@@ -502,8 +508,7 @@ Map<String, num> positionX(Graph g) {
     for (var horiz in ['l', 'r']) {
       List<List<String>> currLayering;
       if (horiz == 'r') {
-        currLayering =
-            usedLayering.map((lyr) => lyr.reversed.toList()).toList();
+        currLayering = usedLayering.map((lyr) => lyr.reversed.toList()).toList();
       } else {
         currLayering = usedLayering;
       }
@@ -512,11 +517,9 @@ Map<String, num> positionX(Graph g) {
           ? (String v) => g.predecessors(v) ?? []
           : (String v) => g.successors(v) ?? [];
 
-      print("call verticalAlignment with vert=$vert horiz=$horiz");
       final alignment =
           verticalAlignment(g, currLayering, conflicts, neighborFn);
 
-      print("call horizontalCompaction with vert=$vert horiz=$horiz");
       var xs = horizontalCompaction(
           g, currLayering, alignment.root, alignment.align, (horiz == 'r'));
       if (horiz == 'r') {
@@ -529,12 +532,12 @@ Map<String, num> positionX(Graph g) {
   final best = findSmallestWidthAlignment(g, xss);
   alignCoordinates(xss, best);
   final balanced = balance(xss, g.graph()['align'] as String?);
-  print("=== positionX END => $balanced ===");
   return balanced;
 }
 
 /* ===========================================================
  * 11) _width
+ *  - 保持原样
  * ===========================================================
  */
 num _width(Graph g, String v) {

@@ -313,26 +313,54 @@ void addSubgraphConstraints(Graph g, Graph cg, List<String> vs) {
 }
 
 dynamic applyWithChunking(List argsArray, Function fn) {
+  // 1. 空列表 - 无法 apply
+  if (argsArray.isEmpty) {
+    return null; // 或者 throw
+  }
+
+  // 2. 若只有一个元素 => 无需调用 fn，多参函数会报错，所以直接返回
+  if (argsArray.length == 1) {
+    return argsArray[0];
+  }
+
+  // 3. 若超过阈值 => 拆分
   if (argsArray.length > CHUNKING_THRESHOLD) {
-    // 将 argsArray 拆分成多个子列表
-    final chunks = splitToChunks(argsArray);
-    // 对每个子列表调用 fn，收集中间结果
-    final intermediate =
-        chunks.map((chunk) => Function.apply(fn, chunk)).toList();
-    // 再将中间结果作为参数调用 fn
-    return Function.apply(fn, intermediate);
+    final chunks = splitToChunks(argsArray, CHUNKING_THRESHOLD);
+
+    // 用于收集“分块”后对每个 chunk 调用的结果
+    final intermediate = <dynamic>[];
+
+    for (final chunk in chunks) {
+      if (chunk.isEmpty) {
+        // 跳过空块
+        continue;
+      } else if (chunk.length == 1) {
+        // 单元素也不直接 apply => 直接收集
+        intermediate.add(chunk[0]);
+      } else {
+        // 块里有2个或以上 => 才可真正调用 fn
+        final partial = Function.apply(fn, chunk);
+        intermediate.add(partial);
+      }
+    }
+
+    // 再次递归调用，可能 intermediate 仍很大
+    return applyWithChunking(intermediate, fn);
+
   } else {
+    // 4. 否则规模可直接处理
+    //    这里必须保证列表至少2个元素，函数才能正确 apply
     return Function.apply(fn, argsArray);
   }
 }
 
-// ignore: constant_identifier_names
-
-List<List<T>> splitToChunks<T>(List<T> array,
-    [int chunkSize = CHUNKING_THRESHOLD]) {
+/// 将 [array] 按 [chunkSize] 等分；
+///  最后一个 chunk 若不足 chunkSize，则只包含剩余元素。
+List<List<T>> splitToChunks<T>(List<T> array, [int chunkSize = CHUNKING_THRESHOLD]) {
   final chunks = <List<T>>[];
   for (int i = 0; i < array.length; i += chunkSize) {
-    final chunk = array.sublist(i, min(i + chunkSize, array.length));
+    final end = i + chunkSize;
+    final chunk = array.sublist(i, end > array.length ? array.length : end);
     chunks.add(chunk);
   }
   return chunks;

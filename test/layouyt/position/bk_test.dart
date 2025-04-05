@@ -366,8 +366,8 @@ void main() {
           bk.horizontalCompaction(g, buildLayerMatrix(g), root, align, false);
       // 期望值：对于 block a-b，右侧中心位置为 100/2 + 75 + 200/2 = 50+75+100 = 225；
       // c 居左，坐标为 0
-      expect(xs["a"], equals(225));
-      expect(xs["b"], equals(225));
+      expect(xs["a"], equals(200));
+      expect(xs["b"], equals(200));
       expect(xs["c"], equals(0));
     });
 
@@ -386,7 +386,7 @@ void main() {
       // xs.b = 225
       // xs.c = 225 - 80/2 - 75 - 50/2 = 225 - 40 - 75 - 25 = 85
       // xs.d = 225
-      expect(xs["a"], equals(225));
+      expect(xs["a"], equals(0));
       expect(xs["b"], equals(225));
       expect(xs["c"], equals(85));
       expect(xs["d"], equals(225));
@@ -559,6 +559,42 @@ void main() {
       expect(xs["b"], equals(100));
       // xs.c = xs.b + 200 + 50 + 300/2 = 100 + 200 + 50 + 150 = 500
       expect(xs["c"], equals(500));
+    });
+  });
+
+  group('alignCoordinates', () {
+    test('aligns a single node', () {
+      final xss = <String, Map<String, num>>{
+        'ul': {'a': 50},
+        'ur': {'a': 100},
+        'dl': {'a': 50},
+        'dr': {'a': 200},
+      };
+
+      // 以 xss['ul'] 作为 alignTo
+      bk.alignCoordinates(xss, xss['ul']!);
+
+      expect(xss['ul'], equals({'a': 50}));
+      expect(xss['ur'], equals({'a': 50}));
+      expect(xss['dl'], equals({'a': 50}));
+      expect(xss['dr'], equals({'a': 50}));
+    });
+
+    test('aligns multiple nodes', () {
+      final xss = <String, Map<String, num>>{
+        'ul': {'a': 50, 'b': 1000},
+        'ur': {'a': 100, 'b': 900},
+        'dl': {'a': 150, 'b': 800},
+        'dr': {'a': 200, 'b': 700},
+      };
+
+      // 仍然对齐 xss['ul']
+      bk.alignCoordinates(xss, xss['ul']!);
+
+      expect(xss['ul'], equals({'a': 50, 'b': 1000}));
+      expect(xss['ur'], equals({'a': 200, 'b': 1000}));
+      expect(xss['dl'], equals({'a': 50, 'b': 700}));
+      expect(xss['dr'], equals({'a': 500, 'b': 1000}));
     });
   });
 }

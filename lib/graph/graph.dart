@@ -356,6 +356,13 @@ class Graph {
   }
 
   dynamic edge([dynamic arg0, dynamic arg1, dynamic arg2]) {
+
+    if (arg0 is Edge) {
+    // 直接从对象里取 v, w, name
+    final eObj = arg0;
+    final id = eObj.id;  // Edge 里已有 id getter
+    return edgeLabels[id];
+  }
     String v;
     String w;
     String? name;
