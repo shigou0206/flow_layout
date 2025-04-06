@@ -1,12 +1,11 @@
 import 'dart:io';
+import 'dart:developer' as dev;
 import 'package:flow_layout/graph/graph.dart';
-import 'package:flow_layout/layout/layout.dart' as layout;
 
 void main() {
   // 创建一个示例图并尝试应用修复后的布局
   final testGraph = createTestGraph();
   
-  print('=== 应用修复后的布局算法 ===');
   
   try {
     // 先手动应用基本排序和位置
@@ -15,11 +14,8 @@ void main() {
     // 导出可视化
     final svgContent = generateSVG(testGraph);
     File('fixed_layout.svg').writeAsStringSync(svgContent);
-    
-    print('成功生成布局图，已保存为 fixed_layout.svg');
   } catch (e, stack) {
-    print('布局错误: $e');
-    print(stack);
+    dev.log('布局错误', error: e, stackTrace: stack);
   }
 }
 

@@ -276,8 +276,6 @@ String generateComplexFlowchartSVG() {
     final toX = toNode['x'] as int;
     final toY = toNode['y'] as int;
     
-    final fromShape = fromNode['shape'] as String;
-    final toShape = toNode['shape'] as String;
     
     final stroke = edge['stroke'] as String;
     final strokeWidth = edge['strokeWidth'] as num;

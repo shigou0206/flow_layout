@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="640.0" height="950.0" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<style type="text/css">
+.node rect, .node ellipse, .node circle, .node diamond { fill: #f5f5f5; stroke: #333; stroke-width: 1px; }
+.edgePath path { stroke: #333; stroke-width: 1.5px; fill: none; }
+.edgePath path.dashed { stroke-dasharray: 5,5; }
+.edgeLabel { fill: #333; font-family: sans-serif; font-size: 12px; }
+.cluster { fill: #f0f0f0; stroke: #ddd; stroke-width: 1px; }
+.nodeLabel { font-family: sans-serif; font-size: 14px; }
+</style>
+<marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+  <polygon points="0 0, 10 3.5, 0 7" fill="#333" />
+</marker>
+<marker id="arrowhead-blue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+  <polygon points="0 0, 10 3.5, 0 7" fill="#6A98F0" />
+</marker>
+<marker id="arrowhead-red" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+  <polygon points="0 0, 10 3.5, 0 7" fill="#FF7676" />
+</marker>
+<marker id="arrowhead-green" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+  <polygon points="0 0, 10 3.5, 0 7" fill="#75B798" />
+</marker>
+</defs>
+<g class="cluster" style="">
+<rect x="50.0" y="190.0" width="540.0" height="230.0" rx="5" ry="5" />
+<text x="320.0" y="205.0" text-anchor="middle" class="nodeLabel">System</text>
+</g>
+<g class="edgePath">
+<path d="M320.0,100.0 L320.0,145.0 L320.0,190.0 L320.0,235.0" marker-end="url(#arrowhead)" />
+<text x="320.0" y="190.0" text-anchor="middle" class="edgeLabel">init</text>
+</g>
+<g class="edgePath">
+<path d="M320.0,375.0 L320.0,420.0 L320.0,465.0 L320.0,510.0" marker-end="url(#arrowhead)" />
+<text x="320.0" y="465.0" text-anchor="middle" class="edgeLabel">validate</text>
+</g>
+<g class="edgePath">
+<path d="M261.1764705882353,590.0 L195.0,635.0 L195.0,680.0" marker-end="url(#arrowhead)" />
+<text x="195.0" y="635.0" text-anchor="middle" class="edgeLabel">yes</text>
+</g>
+<g class="edgePath">
+<path d="M378.8235294117647,590.0 L445.0,635.0 L445.0,680.0" marker-end="url(#arrowhead)" />
+<text x="445.0" y="635.0" text-anchor="middle" class="edgeLabel">no</text>
+</g>
+<g class="edgePath">
+<path d="M195.0,760.0 L195.0,805.0 L275.3571428571429,850.0" marker-end="url(#arrowhead)" />
+<text x="195.0" y="805.0" text-anchor="middle" class="edgeLabel">process</text>
+</g>
+<g class="edgePath">
+<path d="M445.0,760.0 L445.0,805.0 L364.6428571428571,850.0" marker-end="url(#arrowhead)" />
+<text x="445.0" y="805.0" text-anchor="middle" class="edgeLabel">handle error</text>
+</g>
+<g class="node">
+<ellipse cx="320.0" cy="75.0" rx="50.0" ry="25.0"  />
+<text x="320.0" y="75.0" text-anchor="middle" dominant-baseline="middle" class="nodeLabel">Start</text>
+</g>
+<g class="node">
+<rect x="120.0" y="235.0" width="400.0" height="140.0" rx="3" ry="3"  />
+<text x="320.0" y="305.0" text-anchor="middle" dominant-baseline="middle" class="nodeLabel">System</text>
+</g>
+<g class="node">
+<path d="M320.0,510.0 L400.0,550.0 L320.0,590.0 L240.0,550.0 Z"  />
+<text x="320.0" y="550.0" text-anchor="middle" dominant-baseline="middle" class="nodeLabel">Data Valid?</text>
+</g>
+<g class="node">
+<rect x="105.0" y="680.0" width="180.0" height="80.0" rx="3" ry="3"  />
+<text x="195.0" y="720.0" text-anchor="middle" dominant-baseline="middle" class="nodeLabel">Success Path</text>
+</g>
+<g class="node">
+<rect x="355.0" y="680.0" width="180.0" height="80.0" rx="3" ry="3"  />
+<text x="445.0" y="720.0" text-anchor="middle" dominant-baseline="middle" class="nodeLabel">Error Path</text>
+</g>
+<g class="node">
+<ellipse cx="320.0" cy="875.0" rx="50.0" ry="25.0"  />
+<text x="320.0" y="875.0" text-anchor="middle" dominant-baseline="middle" class="nodeLabel">End</text>
+</g>
+</svg>

@@ -3,7 +3,7 @@ import 'package:flow_layout/graph/graph.dart';
 
 void longestPath(Graph g) {
   // visited 用于避免重复 DFS
-  final visited = <String,bool>{};
+  final visited = <String, bool>{};
 
   /// 局部函数 dfs(v): 返回节点 v 的 rank
   double dfs(String v) {
@@ -24,7 +24,7 @@ void longestPath(Graph g) {
       // 否则取各后继点 rank - minlen
       final lens = <double>[];
       for (final e in outEdges) {
-        final w = e['w']; 
+        final w = e['w'];
         final edgeData = g.edge(e) ?? {};
         final minlen = (edgeData['minlen'] as num?) ?? 1;
 
@@ -38,7 +38,9 @@ void longestPath(Graph g) {
       if (minVal == double.infinity) {
         minVal = 0.0;
       }
-      label['rank'] = minVal;
+      if (label != null) {
+        label['rank'] = minVal;
+      }
       return minVal;
     }
   }

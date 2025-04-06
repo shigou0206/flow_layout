@@ -1,4 +1,3 @@
-
 enum _ArgSentinel { noVal }
 
 // 生成边ID的工具函数（替代原Edge.id）
@@ -11,7 +10,8 @@ String createEdgeId(String v, String w, String? name, bool isDirected) {
 }
 
 // 创建边的Map表示
-Map<String, dynamic> createEdgeMap(String v, String w, [String? name, bool isDirected = true]) {
+Map<String, dynamic> createEdgeMap(String v, String w,
+    [String? name, bool isDirected = true]) {
   final map = <String, dynamic>{
     'v': v,
     'w': w,
@@ -34,10 +34,12 @@ class Graph {
 
   /// 节点相关存储
   final Map<String, dynamic> nodes = {}; // nodeId -> label
-  final Map<String, Map<String, Map<String, dynamic>>> _in = {}; // nodeId -> (edgeId -> EdgeMap)
+  final Map<String, Map<String, Map<String, dynamic>>> _in =
+      {}; // nodeId -> (edgeId -> EdgeMap)
   final Map<String, Map<String, int>> _preds =
       {}; // nodeId -> (predId -> count)
-  final Map<String, Map<String, Map<String, dynamic>>> _out = {}; // nodeId -> (edgeId -> EdgeMap)
+  final Map<String, Map<String, Map<String, dynamic>>> _out =
+      {}; // nodeId -> (edgeId -> EdgeMap)
   final Map<String, Map<String, int>> _sucs = {}; // nodeId -> (succId -> count)
 
   /// 边的存储
@@ -569,7 +571,8 @@ class Graph {
     }
     for (var e in edgeObjs.values) {
       if (newGraph.hasNode(e['v']) && newGraph.hasNode(e['w'])) {
-        newGraph.setEdge(e['v'], e['w'], edge(e['v'], e['w'], e['name']), e['name']);
+        newGraph.setEdge(
+            e['v'], e['w'], edge(e['v'], e['w'], e['name']), e['name']);
       }
     }
 
