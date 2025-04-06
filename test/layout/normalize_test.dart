@@ -1,6 +1,6 @@
+import 'package:flutter_test/flutter_test.dart';
 import 'package:flow_layout/graph/graph.dart';
 import 'package:flow_layout/graph/alg/normalize.dart' as normalize;
-import 'package:test/test.dart';
 
 void main() {
   group('normalize', () {
@@ -22,7 +22,11 @@ void main() {
         normalize.run(g);
 
         final edges = g.edges().map((e) => {'v': e['v'], 'w': e['w']}).toList();
-        expect(edges, equals([{'v': 'a', 'w': 'b'}]));
+        expect(
+            edges,
+            equals([
+              {'v': 'a', 'w': 'b'}
+            ]));
         expect(g.node('a')?['rank'], equals(0));
         expect(g.node('b')?['rank'], equals(1));
       });
@@ -36,7 +40,7 @@ void main() {
 
         final successors = g.successors('a') ?? [];
         expect(successors.length, equals(1));
-        
+
         final successor = successors[0];
         expect(g.node(successor)?['dummy'], equals('edge'));
         expect(g.node(successor)?['rank'], equals(1));
@@ -58,13 +62,14 @@ void main() {
 
         final successors = g.successors('a') ?? [];
         expect(successors.length, equals(1));
-        
+
         final successor = successors[0];
         expect(g.node(successor)?['width'], equals(0));
         expect(g.node(successor)?['height'], equals(0));
       });
 
-      test('assigns width and height from the edge for the node on labelRank', () {
+      test('assigns width and height from the edge for the node on labelRank',
+          () {
         g.setNode('a', {'rank': 0});
         g.setNode('b', {'rank': 4});
         g.setEdge('a', 'b', {'width': 20, 'height': 10, 'labelRank': 2});
@@ -74,7 +79,7 @@ void main() {
         final aSuc = g.successors('a')?[0];
         final aSucSuc = g.successors(aSuc)?[0];
         final labelNode = g.node(aSucSuc);
-        
+
         expect(labelNode?['width'], equals(20));
         expect(labelNode?['height'], equals(10));
       });
@@ -88,7 +93,7 @@ void main() {
 
         final successors = g.successors('a') ?? [];
         expect(successors.length, equals(1));
-        
+
         final edgeData = g.edge({'v': 'a', 'w': successors[0]});
         expect(edgeData?['weight'], equals(2));
       });
@@ -104,7 +109,11 @@ void main() {
         normalize.undo(g);
 
         final edges = g.edges().map((e) => {'v': e['v'], 'w': e['w']}).toList();
-        expect(edges, equals([{'v': 'a', 'w': 'b'}]));
+        expect(
+            edges,
+            equals([
+              {'v': 'a', 'w': 'b'}
+            ]));
         expect(g.node('a')?['rank'], equals(0));
         expect(g.node('b')?['rank'], equals(2));
       });
@@ -137,7 +146,11 @@ void main() {
         normalize.undo(g);
 
         final points = g.edge({'v': 'a', 'w': 'b'})?['points'] as List?;
-        expect(points, equals([{'x': 5, 'y': 10}]));
+        expect(
+            points,
+            equals([
+              {'x': 5, 'y': 10}
+            ]));
       });
 
       test('merges assigned coordinates into the points attribute', () {
@@ -171,11 +184,13 @@ void main() {
         normalize.undo(g);
 
         final points = g.edge({'v': 'a', 'w': 'b'})?['points'] as List?;
-        expect(points, equals([
-          {'x': 5, 'y': 10},
-          {'x': 20, 'y': 25},
-          {'x': 100, 'y': 200}
-        ]));
+        expect(
+            points,
+            equals([
+              {'x': 5, 'y': 10},
+              {'x': 20, 'y': 25},
+              {'x': 100, 'y': 200}
+            ]));
       });
 
       test('sets coords and dims for the label, if the edge has one', () {
@@ -198,10 +213,8 @@ void main() {
 
         final edge = g.edge({'v': 'a', 'w': 'b'});
         final edgeData = pick(edge, ['x', 'y', 'width', 'height']);
-        
-        expect(edgeData, equals({
-          'x': 50, 'y': 60, 'width': 20, 'height': 10
-        }));
+
+        expect(edgeData, equals({'x': 50, 'y': 60, 'width': 20, 'height': 10}));
       });
 
       test('sets coords and dims for the label, if the long edge has one', () {
@@ -225,10 +238,8 @@ void main() {
 
         final edge = g.edge({'v': 'a', 'w': 'b'});
         final edgeData = pick(edge, ['x', 'y', 'width', 'height']);
-        
-        expect(edgeData, equals({
-          'x': 50, 'y': 60, 'width': 20, 'height': 10
-        }));
+
+        expect(edgeData, equals({'x': 50, 'y': 60, 'width': 20, 'height': 10}));
       });
 
       test('restores multi-edges', () {
@@ -244,9 +255,10 @@ void main() {
         // Verify we have edges before continuing
         expect(outEdges, isNotNull);
         expect(outEdges!.length, equals(2));
-        
+
         // Sort by name to match the JavaScript test order
-        outEdges.sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
+        outEdges.sort(
+            (a, b) => (a['name'] as String).compareTo(b['name'] as String));
 
         // Get the nodes at the other end of these edges
         final barDummy = g.node(outEdges[0]['w']);
@@ -264,12 +276,22 @@ void main() {
         normalize.undo(g);
 
         expect(g.hasEdge('a', 'b'), isFalse);
-        
-        final barPoints = g.edge({'v': 'a', 'w': 'b', 'name': 'bar'})?['points'] as List?;
-        expect(barPoints, equals([{'x': 5, 'y': 10}]));
-        
-        final fooPoints = g.edge({'v': 'a', 'w': 'b', 'name': 'foo'})?['points'] as List?;
-        expect(fooPoints, equals([{'x': 15, 'y': 20}]));
+
+        final barPoints =
+            g.edge({'v': 'a', 'w': 'b', 'name': 'bar'})?['points'] as List?;
+        expect(
+            barPoints,
+            equals([
+              {'x': 5, 'y': 10}
+            ]));
+
+        final fooPoints =
+            g.edge({'v': 'a', 'w': 'b', 'name': 'foo'})?['points'] as List?;
+        expect(
+            fooPoints,
+            equals([
+              {'x': 15, 'y': 20}
+            ]));
       });
     });
   });
@@ -278,7 +300,7 @@ void main() {
 // Helper function to pick specific properties from an object
 Map<String, dynamic>? pick(Map<dynamic, dynamic>? obj, List<String> keys) {
   if (obj == null) return null;
-  
+
   final picked = <String, dynamic>{};
   for (final key in keys) {
     if (obj.containsKey(key)) {
@@ -286,4 +308,4 @@ Map<String, dynamic>? pick(Map<dynamic, dynamic>? obj, List<String> keys) {
     }
   }
   return picked;
-} 
+}

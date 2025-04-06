@@ -1,25 +1,23 @@
-import 'package:flutter/material.dart';
-
 import 'package:flow_layout/graph/graph.dart';
 import 'package:flow_layout/layout/layout.dart';
 
 void main() {
   print("===== Testing layout algorithm =====");
-  
+
   // Test a simple graph with a single node
   testSimpleGraph();
-  
+
   // Test a more complex graph
   // testComplexGraph();
 }
 
 void testSimpleGraph() {
   print("\n----- Testing simple graph -----");
-  
+
   final g = Graph()
     ..setGraph({'rankdir': 'TB'})
     ..setNode('a', {'width': 50, 'height': 100});
-  
+
   try {
     layout(g);
     print("✓ Layout successful");
@@ -32,7 +30,7 @@ void testSimpleGraph() {
 
 void testComplexGraph() {
   print("\n----- Testing complex graph -----");
-  
+
   final g = Graph()
     ..setGraph({'rankdir': 'TB', 'nodesep': 50, 'ranksep': 70})
     ..setNode('a', {'width': 50, 'height': 100})
@@ -43,7 +41,7 @@ void testComplexGraph() {
     ..setEdge('b', 'c')
     ..setEdge('a', 'd')
     ..setEdge('c', 'd');
-  
+
   try {
     layout(g);
     print("✓ Layout successful");
@@ -77,4 +75,4 @@ void printEdgeCoordinates(Graph g) {
       print("  ]");
     }
   }
-} 
+}

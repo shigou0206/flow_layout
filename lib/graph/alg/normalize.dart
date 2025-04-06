@@ -17,10 +17,8 @@ void run(Graph g) {
 
   g.setGraph(graphData);
   final edges = g.edges();
-  if (edges != null) {
-    for (final edge in edges) {
-      normalizeEdge(g, edge);
-    }
+  for (final edge in edges) {
+    normalizeEdge(g, edge);
   }
 }
 

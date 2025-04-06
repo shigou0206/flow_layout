@@ -1,6 +1,6 @@
 import 'package:flow_layout/graph/graph.dart';
 import 'package:flow_layout/graph/alg/greedy_fas.dart';
-import 'package:test/test.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('greedyFAS', () {
@@ -68,17 +68,19 @@ void main() {
       g1.setEdge('n1', 'n2', 2);
       g1.setEdge('n2', 'n1', 1);
       expect(
-        greedyFAS(g1, weightFn(g1)).map((e) => {'v': e['v'], 'w': e['w']}),
-        equals([{'v': 'n2', 'w': 'n1'}])
-      );
+          greedyFAS(g1, weightFn(g1)).map((e) => {'v': e['v'], 'w': e['w']}),
+          equals([
+            {'v': 'n2', 'w': 'n1'}
+          ]));
 
       final g2 = Graph();
       g2.setEdge('n1', 'n2', 1);
       g2.setEdge('n2', 'n1', 2);
       expect(
-        greedyFAS(g2, weightFn(g2)).map((e) => {'v': e['v'], 'w': e['w']}),
-        equals([{'v': 'n1', 'w': 'n2'}])
-      );
+          greedyFAS(g2, weightFn(g2)).map((e) => {'v': e['v'], 'w': e['w']}),
+          equals([
+            {'v': 'n1', 'w': 'n2'}
+          ]));
     });
 
     test('works for multigraphs', () {
@@ -87,17 +89,17 @@ void main() {
       g.setEdge('b', 'a', 2, 'bar');
       g.setEdge('b', 'a', 2, 'baz');
       final fas = greedyFAS(g, weightFn(g));
-      
+
       // Sort by name for consistent comparison
       final sortedFas = List.from(fas)
         ..sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
-      
-      expect(sortedFas.map((e) => {'v': e['v'], 'w': e['w'], 'name': e['name']}),
-        equals([
-          {'v': 'b', 'w': 'a', 'name': 'bar'},
-          {'v': 'b', 'w': 'a', 'name': 'baz'}
-        ])
-      );
+
+      expect(
+          sortedFas.map((e) => {'v': e['v'], 'w': e['w'], 'name': e['name']}),
+          equals([
+            {'v': 'b', 'w': 'a', 'name': 'bar'},
+            {'v': 'b', 'w': 'a', 'name': 'baz'}
+          ]));
     });
   });
 }
@@ -113,14 +115,14 @@ void setPath(Graph g, List<String> path) {
 void checkFAS(Graph g, List<Map<String, dynamic>> fas) {
   final n = g.getNodes().length;
   final m = g.edges()?.length ?? 0;
-  
+
   final testGraph = Graph();
-  
+
   // Copy nodes and edges, excluding FAS edges
   for (final node in g.getNodes()) {
     testGraph.setNode(node);
   }
-  
+
   final edges = g.edges() ?? [];
   for (final edge in edges) {
     bool inFas = false;
@@ -134,10 +136,10 @@ void checkFAS(Graph g, List<Map<String, dynamic>> fas) {
       testGraph.setEdge(edge['v'], edge['w']);
     }
   }
-  
+
   // Check that there are no cycles in the resulting graph
   expect(findCycles(testGraph), equals([]));
-  
+
   // Check that the FAS size meets the performance bounds
   // Use floor to account for rounding issues in the bound calculation
   final bound = (m / 2).floor() - (n / 6).floor();
@@ -150,7 +152,7 @@ List<List<String>> findCycles(Graph g) {
   final visited = <String, bool>{};
   final path = <String>[];
   final pathSet = <String>{};
-  
+
   void dfs(String node) {
     // Skip if node is already on current path (cycle found)
     if (pathSet.contains(node)) {
@@ -159,34 +161,34 @@ List<List<String>> findCycles(Graph g) {
       cycles.add(path.sublist(cycleStart).toList()..add(node));
       return;
     }
-    
+
     // Skip if already visited
     if (visited[node] == true) return;
-    
+
     visited[node] = true;
     path.add(node);
     pathSet.add(node);
-    
+
     final successors = g.successors(node) ?? [];
     for (final successor in successors) {
       dfs(successor);
     }
-    
+
     path.removeLast();
     pathSet.remove(node);
   }
-  
+
   // Apply DFS to each node
   for (final node in g.getNodes()) {
     if (visited[node] != true) {
       dfs(node);
     }
   }
-  
+
   return cycles;
 }
 
 /// Weight function for the greedy FAS algorithm
 dynamic Function(Map<String, dynamic>) weightFn(Graph g) {
   return (e) => g.edge(e);
-} 
+}
