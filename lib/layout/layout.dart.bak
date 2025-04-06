@@ -523,8 +523,8 @@ void translateGraph(Graph g) {
 
   // 设置图大小和偏移量
   final graphData = g.graph() ?? {};
-  graphData['width'] = (graphWidth + 2 * marginX).toDouble();
-  graphData['height'] = (graphHeight + 2 * marginY).toDouble();
+  graphData['width'] = graphWidth + 2 * marginX;
+  graphData['height'] = graphHeight + 2 * marginY;
   g.setGraph(graphData);
 
   // 移动所有节点的位置

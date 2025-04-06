@@ -1,136 +1,317 @@
 import 'package:flow_layout/graph/graph.dart';
-import 'package:flow_layout/graph/alg/greedy_fas.dart' as greedy_fas;
+import 'package:collection/collection.dart';
 
-/// 处理有向图中的循环，使其变为有向无环图(DAG)
-/// 
-/// 通过反转特定边的方向来移除图中的环，使其成为DAG
-/// 可以使用两种方法：
-/// 1. 贪婪最小反馈弧集(greedy FAS)算法
-/// 2. 基于深度优先搜索(DFS)的算法
+/// 用于处理有向图中的环的算法。
+///
+/// 该类可以:
+/// 1. 使用贪婪算法或深度优先搜索找出有向图中的反馈弧集
+/// 2. 通过反转反馈弧集中的边使图变为无环图
+/// 3. 撤销上述操作，恢复图的原始状态
 class Acyclic {
-  
-  /// 运行无环化算法，反转必要的边使图变为DAG
-  /// 
-  /// 如果图的graph对象中acyclicer属性为"greedy"，则使用贪婪算法
-  /// 否则使用基于DFS的算法
-  static void run(Graph g) {
-    List<Map<String, dynamic>> edges;
+  // 添加静态字段来存储原始边
+  static final Map<int, List<Map<String, dynamic>>> _originalState = {};
+
+  /// 运行算法使图变为无环
+  ///
+  /// 返回图是否发生了改变
+  static bool run(Graph g) {
+    // 检查图是否有环
+    if (_findCycles(g).isEmpty) {
+      return false; // 图已经是无环的，不需要修改
+    }
     
-    // 根据图属性选择算法
-    final graphData = g.graph() ?? {};
-    if (graphData.containsKey('acyclicer') && graphData['acyclicer'] == 'greedy') {
-      // 使用贪婪算法
-      final weightFn = (Map<String, dynamic> e) {
-        final edge = g.edge(e);
-        if (edge is Map && edge.containsKey('weight')) {
-          return edge['weight'] as num;
-        }
-        return 1; // 默认权重
-      };
-      edges = greedy_fas.greedyFAS(g, weightFn);
+    // 保存原始状态以便撤销
+    _saveGraphState(g);
+    
+    final acyclicer = g.graph()?['acyclicer'] as String?;
+    Map<String, dynamic> feedbackEdges;
+
+    if (acyclicer == 'greedy') {
+      feedbackEdges = _greedyFas(g);
     } else {
-      // 使用DFS算法
-      edges = _dfsFAS(g);
+      feedbackEdges = _dfsFeedbackEdges(g);
+    }
+
+    if (feedbackEdges.isEmpty) {
+      return false; // 算法没有找到需要反转的边
+    }
+
+    _removeCycles(g, feedbackEdges);
+    return true; // 图被修改了
+  }
+
+  /// 撤销之前对图的改变，恢复环
+  static void undo(Graph g) {
+    final graphId = g.hashCode;
+    
+    // 如果没有保存这个图的状态，直接返回
+    if (!_originalState.containsKey(graphId)) {
+      return;
     }
     
-    // 反转找到的边
-    for (final e in edges) {
-      final label = g.edge(e);
-      if (label == null) continue;
-      
-      // 保存原始信息并移除原边
-      final forwardName = e.containsKey('name') ? e['name'] : null;
-      g.removeEdge(e);
-      
-      // 设置反向边
-      Map<String, dynamic> newLabel;
-      if (label is Map) {
-        newLabel = Map<String, dynamic>.from(label);
-        newLabel['forwardName'] = forwardName;
-        newLabel['reversed'] = true;
-      } else {
-        // 处理非Map类型的标签
-        newLabel = {
-          'label': label,
-          'forwardName': forwardName,
-          'reversed': true
-        };
+    // 获取原始状态
+    final originalEdges = _originalState[graphId]!;
+    
+    // 找到所有标记了 reversed 的边
+    final reversedEdges = <Map<String, dynamic>>[];
+    for (final edgeObj in g.edges()) {
+      final edge = g.edge(edgeObj);
+      if (edge != null && edge['reversed'] == true) {
+        reversedEdges.add(Map<String, dynamic>.from(edgeObj));
       }
-      
-      // 创建反向边(w->v)替代原来的(v->w)
-      // 不要使用命名边，因为默认情况下图不是多重图
-      g.setEdge(e['w'], e['v'], newLabel);
     }
+    
+    // 先删除所有被反转的边
+    for (final edge in reversedEdges) {
+      g.removeEdge(edge);
+    }
+    
+    // 再添加所有原始边
+    for (final originalEdge in originalEdges) {
+      final v = originalEdge['v'] as String;
+      final w = originalEdge['w'] as String;
+      final name = originalEdge['name']; // 支持多边图中的命名边
+      final label = originalEdge['label'] as Map<String, dynamic>;
+      
+      g.setEdge(v, w, Map<String, dynamic>.from(label), name);
+    }
+    
+    // 清除状态
+    _originalState.remove(graphId);
   }
   
-  /// 基于DFS的反馈弧集算法
-  /// 
-  /// 使用深度优先搜索找到图中的环，并返回需要反转的边
-  static List<Map<String, dynamic>> _dfsFAS(Graph g) {
-    final fas = <Map<String, dynamic>>[];
-    final stack = <String, bool>{};
-    final visited = <String, bool>{};
+  /// 保存图的初始状态
+  static void _saveGraphState(Graph g) {
+    final graphId = g.hashCode;
+    final edges = <Map<String, dynamic>>[];
     
-    void dfs(String v) {
-      if (visited.containsKey(v)) return;
+    // 保存所有边的信息，包括多边图中的命名边
+    for (final edgeObj in g.edges()) {
+      final v = edgeObj['v'] as String;
+      final w = edgeObj['w'] as String;
+      final name = edgeObj['name']; // 支持多边图
+      final label = g.edge(edgeObj);
       
-      visited[v] = true;
-      stack[v] = true;
+      if (label != null) {
+        edges.add({
+          'v': v,
+          'w': w,
+          'name': name,
+          'label': Map<String, dynamic>.from(label)
+        });
+      }
+    }
+    
+    _originalState[graphId] = edges;
+  }
+  
+  /// 查找图中的所有环
+  static List<List<String>> _findCycles(Graph g) {
+    final visited = <String>{};
+    final cycles = <List<String>>[];
+    
+    void dfs(String node, List<String> path, Set<String> onStack) {
+      if (onStack.contains(node)) {
+        // 找到环
+        final cycleStart = path.indexOf(node);
+        final cycle = path.sublist(cycleStart);
+        cycles.add(cycle);
+        return;
+      }
       
-      final outEdges = g.outEdges(v) ?? [];
-      for (final e in outEdges) {
-        final w = e['w'] as String;
-        if (stack.containsKey(w)) {
-          // 找到回边，加入反馈弧集
-          fas.add(e);
-        } else {
-          dfs(w);
+      if (visited.contains(node)) return;
+      
+      visited.add(node);
+      onStack.add(node);
+      path.add(node);
+      
+      final successors = g.successors(node) ?? [];
+      for (final next in successors) {
+        dfs(next, [...path], {...onStack});
+      }
+      
+      onStack.remove(node);
+    }
+    
+    for (final node in g.getNodes()) {
+      if (!visited.contains(node)) {
+        dfs(node, [], {});
+      }
+    }
+    
+    return cycles;
+  }
+
+  /// 使用贪婪算法查找反馈弧集
+  static Map<String, dynamic> _greedyFas(Graph g) {
+    // 使用临时图进行环检测，有序添加边
+    final tmpGraph = Graph(isDirected: true);
+    
+    // 将节点添加到临时图
+    for (final node in g.getNodes()) {
+      tmpGraph.setNode(node);
+    }
+    
+    // 将所有边按权重从高到低排序（确保低权重的边最后处理）
+    final sortedEdges = <Map<String, dynamic>>[...g.edges()];
+    sortedEdges.sort((a, b) {
+      final weightA = _getEdgeWeight(g, a);
+      final weightB = _getEdgeWeight(g, b);
+      // 降序排序，高权重优先
+      return weightB.compareTo(weightA);
+    });
+    
+    // 标记反馈弧集
+    final feedbackEdges = <String, dynamic>{};
+    
+    // 从高权重边开始逐个添加，低权重边最后添加
+    for (final edge in sortedEdges) {
+      final v = edge['v'] as String;
+      final w = edge['w'] as String;
+      
+      print('Processing edge $v -> $w with weight ${_getEdgeWeight(g, edge)}');
+      
+      // 尝试添加到辅助图中
+      tmpGraph.setEdge(v, w, {});
+      
+      // 检查是否形成环路
+      final hasCycle = _findCycles(tmpGraph).isNotEmpty;
+      
+      if (hasCycle) {
+        // 如果形成环，则将低权重边加入反馈弧集
+        print('Edge $v -> $w creates cycle, marking for reversal');
+        feedbackEdges[_edgeKey(edge)] = edge;
+        
+        // 从临时图中移除这条边
+        tmpGraph.removeEdge(v, w);
+      } 
+    }
+    
+    return feedbackEdges;
+  }
+  
+  /// 构建节点的拓扑排序
+  static List<String> _buildNodeOrder(Graph g) {
+    final visited = <String>{};
+    final result = <String>[];
+    
+    void visit(String node) {
+      if (visited.contains(node)) return;
+      visited.add(node);
+      
+      // 先访问所有后继节点
+      final successors = g.successors(node) ?? [];
+      for (final next in successors) {
+        visit(next);
+      }
+      
+      // 节点放到结果的前面
+      result.insert(0, node);
+    }
+    
+    // 尝试从每个未访问的节点开始
+    for (final node in g.getNodes()) {
+      if (!visited.contains(node)) {
+        visit(node);
+      }
+    }
+    
+    return result;
+  }
+
+  /// 用于边的权重比较排序（低权重优先）
+  static List<Map<String, dynamic>> _edgeWeightCmp(Graph g, List<Map<String, dynamic>> edges) {
+    edges.sort((a, b) {
+      final weightA = _getEdgeWeight(g, a);
+      final weightB = _getEdgeWeight(g, b);
+      return weightA.compareTo(weightB);
+    });
+    return edges;
+  }
+
+  /// 获取边的权重
+  static num _getEdgeWeight(Graph g, Map<String, dynamic> edge) {
+    final label = g.edge(edge);
+    return label != null && label.containsKey('weight') ? label['weight'] as num : 1;
+  }
+
+  /// 用于边的键生成
+  static String _edgeKey(Map<String, dynamic> edge) {
+    final nameStr = edge['name'] != null ? ':${edge['name']}' : '';
+    return '${edge['v']}:${edge['w']}$nameStr';
+  }
+
+  /// 使用 DFS 查找反馈弧集
+  static Map<String, dynamic> _dfsFeedbackEdges(Graph g) {
+    final visited = <String>{};
+    final onStack = <String>{};
+    final results = <String, dynamic>{};
+
+    void dfs(String u) {
+      if (visited.contains(u)) {
+        return;
+      }
+      
+      visited.add(u);
+      onStack.add(u);
+
+      final successors = g.successors(u) ?? [];
+      for (final v in successors) {
+        if (onStack.contains(v)) {
+          // 找到一个环
+          final edges = g.outEdges(u, v) ?? [];
+          for (final edge in edges) {
+            results[_edgeKey(edge)] = edge;
+          }
+        } else if (!visited.contains(v)) {
+          dfs(v);
         }
       }
       
-      stack.remove(v);
+      onStack.remove(u);
     }
-    
-    // 对每个未访问的节点执行DFS
-    for (final v in g.getNodes()) {
-      dfs(v);
-    }
-    
-    return fas;
-  }
-  
-  /// 恢复原图，撤销边的反转
-  static void undo(Graph g) {
-    final edgesToRemove = <Map<String, dynamic>>[];
-    
-    // 首先收集需要恢复的边
-    for (final e in g.edges()) {
-      final label = g.edge(e);
-      if (label is Map && label.containsKey('reversed') && label['reversed'] == true) {
-        edgesToRemove.add(e);
+
+    for (final node in g.getNodes()) {
+      if (!visited.contains(node)) {
+        dfs(node);
       }
     }
-    
-    // 恢复边
-    for (final e in edgesToRemove) {
-      final label = g.edge(e);
-      if (label == null || label is! Map) continue;
+
+    return results;
+  }
+
+  /// 通过反转反馈弧集中的边移除环
+  static void _removeCycles(Graph g, Map<String, dynamic> feedbackEdges) {
+    for (final edgeObj in feedbackEdges.values) {
+      final v = edgeObj['v'] as String;
+      final w = edgeObj['w'] as String;
+      final name = edgeObj['name']; // 支持多边图
       
-      g.removeEdge(e);
+      // 获取原始边标签
+      final label = g.edge(v, w, name) ?? {};
       
-      // 获取原始名称并清除反转标记
-      final Map<String, dynamic> newLabel = Map<String, dynamic>.from(label);
-      final forwardName = newLabel.containsKey('forwardName') ? newLabel['forwardName'] : null;
-      newLabel.remove('reversed');
-      newLabel.remove('forwardName');
+      // 移除原始边
+      g.removeEdge(v, w, name);
       
-      // 如果标签是通过包装原始值创建的，恢复原始值
-      if (newLabel.containsKey('label') && newLabel.length == 1) {
-        // 不使用命名边
-        g.setEdge(e['w'], e['v'], newLabel['label']);
+      // 确保边被移除
+      if (g.hasEdge(v, w, name)) {
+        print('Failed to remove edge $v -> $w');
+      }
+      
+      // 创建新标签，将原始方向记录下来
+      final newLabel = Map<String, dynamic>.from(label);
+      newLabel['reversed'] = true;
+      newLabel['originalSource'] = v;
+      newLabel['originalTarget'] = w;
+      
+      // 为多边图创建反向边（可能需要新名称）
+      if (g.isMultigraph && g.hasEdge(w, v)) {
+        // 使用新的唯一名称
+        final newName = name != null ? '${name}_reversed' : 'reversed';
+        g.setEdge(w, v, newLabel, newName);
       } else {
-        // 不使用命名边
-        g.setEdge(e['w'], e['v'], newLabel);
+        // 使用原始名称（如果有）
+        g.setEdge(w, v, newLabel, name);
       }
     }
   }

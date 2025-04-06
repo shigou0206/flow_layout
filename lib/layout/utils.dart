@@ -16,26 +16,66 @@ int maxRank(Graph g) {
   return ranks.reduce((a, b) => a > b ? a : b);
 }
 
-// 修正后的 buildLayerMatrix
+// 修正后的 buildLayerMatrix - 增强版处理 rank 和 order 类型
 List<List<String>> buildLayerMatrix(Graph g) {
   // 计算最大 rank，这里假设 maxRank(g) 已经实现
   final int maxRankValue = maxRank(g) + 1;
+  
   // 初始化层次矩阵，每一层都是空列表
   final layering = List<List<String>>.generate(maxRankValue, (_) => []);
 
-  // 遍历所有节点，根据节点的 rank 和 order 放入对应层
+  // 创建一个按 rank 分组的临时结构，并记录每个节点的 order
+  final Map<int, Map<int, String>> rankGroups = {};
+  
+  // 遍历所有节点，根据节点的 rank 分组
   for (final v in g.getNodes()) {
     final node = g.node(v);
-    if (node != null && node["rank"] != null) {
-      final int rank = node["rank"] as int;
-      final int order = node["order"] as int;
-      // 确保该层列表足够长，以便直接使用 order 作为索引
-      while (layering[rank].length <= order) {
-        layering[rank].add('');
+    if (node != null && node.containsKey('rank')) {
+      // 获取 rank，支持 int 或 double
+      int rank;
+      if (node['rank'] is int) {
+        rank = node['rank'] as int;
+      } else if (node['rank'] is double) {
+        rank = (node['rank'] as double).round();
+      } else {
+        continue; // 跳过没有有效 rank 的节点
       }
-      layering[rank][order] = v;
+
+      // 获取 order，如果不存在则使用当前 rank 组中的节点数作为默认值
+      int order;
+      if (node.containsKey('order') && node['order'] is int) {
+        order = node['order'] as int;
+      } else {
+        rankGroups.putIfAbsent(rank, () => {});
+        order = rankGroups[rank]!.length;
+      }
+
+      rankGroups.putIfAbsent(rank, () => {});
+      rankGroups[rank]![order] = v;
     }
   }
+
+  // 构建最终的层次矩阵
+  for (int rank = 0; rank < maxRankValue; rank++) {
+    if (rankGroups.containsKey(rank)) {
+      final orderMap = rankGroups[rank]!;
+      final orders = orderMap.keys.toList()..sort();
+      
+      for (final order in orders) {
+        // 确保该层列表足够长
+        while (layering[rank].length <= order) {
+          layering[rank].add('');
+        }
+        layering[rank][order] = orderMap[order]!;
+      }
+    }
+  }
+  
+  // 压缩层，移除空白项
+  for (int rank = 0; rank < layering.length; rank++) {
+    layering[rank] = layering[rank].where((v) => v.isNotEmpty).toList();
+  }
+  
   return layering;
 }
 
